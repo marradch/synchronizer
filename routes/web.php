@@ -10,7 +10,11 @@
 | contains the "web" middleware group. Now create something great!
 |
 */
+Route::get('/', 'LoginController@authPage')->name('home');
+Route::get('/authRedirect', 'LoginController@authRedirect');
 
-Route::get('/', function () {
-    return view('welcome');
+Route::group(['middleware' => ['vk.token.verfy']], function () { 
+	Route::get('/dashboard', 'DashboardController@index')->name('dashboard');
 });
+
+
