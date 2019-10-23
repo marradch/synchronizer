@@ -11,9 +11,9 @@
 |
 */
 Route::get('/', 'LoginController@authPage')->name('home');
-Route::get('/authRedirect', 'LoginController@authRedirect');
+Route::get('/authRedirect', 'LoginController@authRedirect')->name('vk.redirect_uri');
 
-Route::group(['middleware' => ['vk.token.verfy']], function () { 
+Route::group(['middleware' => ['vk.token.verfy']], function () {
 	Route::get('/dashboard', 'DashboardController@index')->name('dashboard');
 });
 
