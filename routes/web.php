@@ -10,11 +10,17 @@
 | contains the "web" middleware group. Now create something great!
 |
 */
-Route::get('/', 'LoginController@authPage')->name('home');
-Route::get('/authRedirect', 'LoginController@authRedirect')->name('vk.redirect_uri');
+Route::get('/', 'VKAuthController@authPage')->name('home');
+Route::get('/authRedirect', 'VKAuthController@authRedirect')->name('vk.redirect_uri');
+Route::get('/logout', 'VKAuthController@logout')->name('vk.logout');
+Route::get('/auth/error/{code}', 'VKAuthController@displayError')->name('auth.error');
 
-Route::group(['middleware' => ['vk.token.verfy']], function () {
-	Route::get('/dashboard', 'DashboardController@index')->name('dashboard');
+Route::group(['middleware' => ['vk.token.verify']], function () {
+    Route::get('/choose-group', 'VKAuthController@chooseGroup')->name('auth.choose.group');
+    Route::post('/set-group', 'VKAuthController@setGroup')->name('auth.set.group');
+    Route::group(['middleware' => ['vk.group.verify']], function () {
+        Route::get('/dashboard', 'DashboardController@index')->name('dashboard');
+    });
 });
 
 

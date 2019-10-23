@@ -3,16 +3,22 @@
 namespace App\Http\Middleware;
 
 use Closure;
-use Session;
+use App\Services\VKAuthService;
 
 class VKTokenVerify
 {
     public function handle($request, Closure $next)
-    {					
-        if(!is_array(session('authData'))){
-			return redirect()->route('home');
-		}
-		
+    {
+        $vkAuthService = new VKAuthService();
+
+        $isValidToken = $vkAuthService->checkSessionToken();
+
+        if(!$isValidToken){
+            return redirect()->route('home');
+        }
+
+        $request->attributes->add(['authData' => session('authData')]);
+
 		return $next($request);
     }
 }

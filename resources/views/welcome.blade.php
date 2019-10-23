@@ -1,1 +1,0 @@
-<a href="{{ $loginUrl }}">login via VK</a>
