@@ -16,4 +16,10 @@ class DashboardController extends Controller
 	{
 		return view('dashboard.index');
 	}
+
+	public function processFile()
+    {
+        $VKSynchronizerService = new \App\Services\VKSynchronizerService();
+        $VKSynchronizerService->processFile();
+    }
 }
