@@ -13,10 +13,9 @@ use VK\Exceptions\Api\VKApiAuthException;
 
 class VKAuthService
 {
-
-    CONST DASHBOARD_ROUTE = 'dashboard';
-    CONST ERROR_MEMBER_ROUTE = 'auth.error';
-    CONST SETTINGS_GROUP = 'auth.choose.group';
+    private CONST DASHBOARD_ROUTE = 'dashboard';
+    private CONST ERROR_MEMBER_ROUTE = 'auth.error';
+    private CONST SETTINGS_GROUP = 'auth.choose.group';
 
     private $appId;
     private $appSecret;
@@ -34,7 +33,6 @@ class VKAuthService
         $this->appId = env('VK_APP_ID', null);
         $this->appSecret = env('VK_APP_SECRET', null);
         $this->redirectURI = route('vk.redirect_uri');
-        //$this->redirectURI = 'http://6d2ef032.ngrok.io' . '/authRedirect';
         $this->tokenModel = new Token();
         $this->vk = new VKApiClient();
     }

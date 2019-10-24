@@ -18,7 +18,6 @@ class VKAuthController extends Controller
 
 	public function authPage()
 	{
-        //session(['authData' => 0]);
 		if(is_array(session('authData'))){
 			return redirect()->route('dashboard');
 		}
@@ -36,7 +35,7 @@ class VKAuthController extends Controller
 
 		$redirectTo = $this->vkAuthService->processRedirect($code);
 
-		return redirect()->route($redirectTo);
+		return redirect()->to($redirectTo);
 	}
 
 	public function chooseGroup()
