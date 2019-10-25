@@ -32,6 +32,11 @@ class Category extends Model
         return $this->hasMany('App\Category', 'shop_parent_id', 'shop_id');
     }
 
+    public function parent()
+    {
+        return $this->belongsTo('App\Category', 'shop_parent_id', 'shop_id');
+    }
+
     public function buildFullName()
     {
         $parents = $this->buildParentsArray();
@@ -75,11 +80,6 @@ class Category extends Model
         } else {
             $this->prepared_name = $this->name;
         }
-    }
-
-    public function parent()
-    {
-        return $this->belongsTo('App\Category', 'shop_parent_id', 'shop_id');
     }
 
     public function buildParentsArray($parentsArray = [])

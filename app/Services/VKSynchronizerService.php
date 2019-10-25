@@ -209,6 +209,30 @@ class VKSynchronizerService
         $picture->status_date  = date('Y-m-d H:i:s');
         $picture->synchronized = false;
         $picture->save();
+
+        $this->downloadFile($pictureNode->nodeValue);
+    }
+
+    private function downloadFile($url)
+    {
+        $path = public_path().'/downloads/' . basename($url);
+
+        $newfname = $path;
+        $file = fopen ($url, 'rb');
+        if ($file) {
+            $newf = fopen ($newfname, 'wb');
+            if ($newf) {
+                while(!feof($file)) {
+                    fwrite($newf, fread($file, 1024 * 8), 1024 * 8);
+                }
+            }
+        }
+        if ($file) {
+            fclose($file);
+        }
+        if ($newf) {
+            fclose($newf);
+        }
     }
 
     private function postLoadingCategoriesProcess()
