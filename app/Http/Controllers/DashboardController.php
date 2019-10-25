@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Services\VKAuthService;
 
 class DashboardController extends Controller
 {
@@ -16,10 +15,4 @@ class DashboardController extends Controller
 	{
 		return view('dashboard.index');
 	}
-
-	public function processFile()
-    {
-        $VKSynchronizerService = new \App\Services\VKSynchronizerService();
-        $VKSynchronizerService->processFile();
-    }
 }

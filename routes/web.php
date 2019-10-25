@@ -23,8 +23,4 @@ Route::group(['middleware' => ['vk.token.verify']], function () {
     });
 });
 
-Route::group(['middleware' => ['vk.group.verify']], function () {
-    Route::get('/process-file', 'DashboardController@processFile')->name('process.file');
-});
-
 
