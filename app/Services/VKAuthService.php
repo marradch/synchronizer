@@ -41,7 +41,11 @@ class VKAuthService
     {
         $oauth = new VKOAuth();
 
-        $scope = [VKOAuthUserScope::MARKET];
+        $scope = [
+            VKOAuthUserScope::MARKET,
+            VKOAuthUserScope::PHOTOS
+        ];
+
         $state = 'secret_state_code';
 
         if (!$this->checkOfflineToken()) {
@@ -75,7 +79,7 @@ class VKAuthService
         return route($redirectTo);
     }
 
-    private function checkOfflineToken()
+    public function checkOfflineToken()
     {
         $tokenItem = $this->tokenModel->first();
         if ($tokenItem) {

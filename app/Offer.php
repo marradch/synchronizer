@@ -22,4 +22,15 @@ class Offer extends Model
     ];
 
     protected $table = 'offers';
+
+    public function category()
+    {
+        return $this->belongsTo('App\Category', 'shop_category_id', 'shop_id');
+    }
+
+    public function pictures()
+    {
+        return $this->hasMany('App\Picture', 'offer_id', 'id');
+    }
+
 }

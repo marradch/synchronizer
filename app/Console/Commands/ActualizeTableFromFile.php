@@ -38,7 +38,6 @@ class ActualizeTableFromFile extends Command
      */
     public function handle()
     {
-        $VKSynchronizerService = new VKSynchronizerService();
-        $VKSynchronizerService->processFile();
+        (new VKSynchronizerService())->processFile();
     }
 }

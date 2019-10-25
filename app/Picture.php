@@ -17,4 +17,9 @@ class Picture extends Model
     ];
 
     protected $table = 'pictures';
+
+    public function offer()
+    {
+        return $this->belongsTo('App\Offer', 'offer_id', 'id');
+    }
 }

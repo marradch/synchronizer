@@ -9,7 +9,6 @@ class Category extends Model
     protected $fillable = [
         'shop_id',
         'shop_parent_id',
-        'vk_id',
         'name',
         'prepared_name',
         'is_final',
@@ -18,6 +17,8 @@ class Category extends Model
         'status_date',
         'synchronized',
         'synchronize_date',
+        'vk_id',
+        'can_load_to_vk',
     ];
 
     protected $table = 'categories';
@@ -35,6 +36,11 @@ class Category extends Model
     public function parent()
     {
         return $this->belongsTo('App\Category', 'shop_parent_id', 'shop_id');
+    }
+
+    public function offers()
+    {
+        return $this->hasMany('App\Offer', 'shop_category_id', 'shop_id');
     }
 
     public function buildFullName()

@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use CURLFile;
 use DOMDocument;
+use Exception;
 use Illuminate\Routing\Pipeline;
 use VK\Client\VKApiClient;
 use App\Token;
@@ -10,14 +12,214 @@ use App\Settings;
 use App\Category;
 use App\Offer;
 use App\Picture;
+use App\Services\VKAuthService;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Database\Eloquent\Builder;
+use VK\Exceptions;
 
 class VKSynchronizerService
 {
     private $dom;
+    private $group;
+    private $token;
+    private $VKApiClient;
 
     public function __construct()
     {
+        $this->VKApiClient = new VKApiClient();
+    }
+
+    public function loadAllToVK()
+    {
+        $canLoadToVK = $this->checkAbilityOfLoading();
+        if(!$canLoadToVK) return;
+
+        $this->loadAddedPhotosToVK();
+        $this->loadAddedCategoryToVK();
+    }
+
+    private function loadAddedPhotosToVK()
+    {
+        $pictures = $this->getAvailablePicturesToUpload();
+
+        try{
+            $result = $this->VKApiClient->photos()->getMarketUploadServer($this->token, ['group_id' => $this->group]);
+            sleep(1);
+        } catch (Exception $e) {
+            Log::critical($e->getMessage());
+            return false;
+        }
+
+        $uploadUrl = $result['upload_url'];
+
+        foreach ($pictures as $picture)
+        {
+            $resultArray = $this->uploadPictureToServer($uploadUrl, $picture);
+            sleep(1);
+
+            if($resultArray) {
+                try{
+                    $resultArray['group_id'] = $this->group;
+                    $result = $this->VKApiClient->photos()->saveMarketPhoto($this->token, $resultArray);
+                    sleep(1);
+                    $vk_id = $result[0]['id'];
+
+                    $picture->vk_id = $vk_id;
+                    $picture->synchronized = true;
+                    $picture->synchronize_date = date('Y-m-d H:i:s');
+                    $picture->save();
+                } catch (Exception $e) {
+                    Log::critical($e->getMessage());
+                    return false;
+                }
+            }
+        }
+    }
+
+    private function uploadPictureToServer($uploadUrl, $picture)
+    {
+        $ch = curl_init($uploadUrl);
+
+        $path = public_path().'/downloads/' . basename($picture->url);
+        $cfile = new CURLFile($path);
+
+        $data = ['file' => $cfile];
+        curl_setopt($ch, CURLOPT_POST,1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+        $uploadResult = curl_exec($ch);
+        curl_close($ch);
+
+        $decodedResult = json_decode($uploadResult);
+
+        $returnArray = [];
+
+        if(!empty($decodedResult->photo)) {
+            $returnArray['server'] = $decodedResult->server;
+            $returnArray['photo'] = stripslashes($decodedResult->photo);
+            $returnArray['hash'] = $decodedResult->hash;
+            if(!empty($decodedResult->crop_data)) {
+                $returnArray['crop_data'] = $decodedResult->crop_data;
+                $returnArray['crop_hash'] = $decodedResult->crop_hash;
+            }
+
+            return $returnArray;
+        } else {
+            return false;
+        }
+    }
+
+    private function getAvailablePicturesToUpload()
+    {
+        $categorySettingsFilter = $this->getCategoriesSettingsFilter();
+
+        $pictures = Picture::whereHas('offer', function (Builder $query) use ($categorySettingsFilter) {
+            $query->whereHas('category', function (Builder $query) use ($categorySettingsFilter) {
+                $query->whereIn('can_load_to_vk', $categorySettingsFilter);
+            });
+        })
+        ->where('synchronized', false)
+        ->where('status', 'added')
+        ->get();
+
+        return $pictures;
+    }
+
+    private function loadAddedCategoryToVK()
+    {
+        $categories = $this->getAvailableCategoriesToUpload();
+        foreach($categories as $category) {
+            try{
+                $paramsArray = [
+                    'owner_id' => '-'.$this->group,
+                    'title'    => $category->prepared_name,
+                    'photo_id' => $category->offers->first()->pictures->first()->vk_id
+                ];
+                $response = $this->VKApiClient->market()->addAlbum($this->token, $paramsArray);
+                $vk_id = $response['market_album_id'];
+
+                $category->vk_id = $vk_id;
+                $category->synchronized = true;
+                $category->synchronize_date = date('Y-m-d H:i:s');
+                $category->save();
+
+                sleep(1);
+            } catch(Exception $e) {
+                Log::critical($e->getMessage());
+            }
+        }
+    }
+
+    private function getAvailableCategoriesToUpload()
+    {
+        $categorySettingsFilter = $this->getCategoriesSettingsFilter();
+
+        $categories = Category::whereIn('can_load_to_vk', $categorySettingsFilter)
+        ->where('synchronized', false)
+        ->where('status', 'added')
+        ->has('offers')
+        ->get();
+
+        return $categories;
+    }
+
+    private function getCategoriesSettingsFilter()
+    {
+        $categorySettingsFilter = [ 'yes' ];
+        if(env('SHOP_CAN_LOAD_NEW_DEFAULT', null) == 'yes') {
+            $categorySettingsFilter[] = 'default';
+        }
+
+        return $categorySettingsFilter;
+    }
+
+    private function checkAbilityOfLoading()
+    {
+        $isTokenSet = $this->setToken();
+        if(!$isTokenSet) {
+            Log::critical('Токен либо не установлен. Либо не действительный');
+            return false;
+        }
+
+        $isGroupSet = $this->setGroup();
+        if(!$isGroupSet) {
+            Log::critical('Нет установленной группы для загрузки фотографий');
+            return false;
+        }
+
+        return true;
+    }
+
+    private function setGroup()
+    {
+        $group = Settings::where('name', 'group')->first();
+        if($group) {
+            $this->group = $group->value;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    private function setToken()
+    {
+        $hasToken = (new VKAuthService())->checkOfflineToken();
+        sleep(1);
+        if($hasToken) {
+            $this->token = Token::first()->token;
+            return true;
+        }
+        return false;
+    }
+
+    // Функции для загрузки из файла в БД
+
+    public function processFile()
+    {
         $this->initiateDOM();
+        $this->processCategoriesNodes();
+        $this->processOffersNodes();
     }
 
     private function initiateDOM()
@@ -27,13 +229,6 @@ class VKSynchronizerService
         $dom->preserveWhiteSpace = false;
         $dom->load($filePath);
         $this->dom = $dom;
-    }
-
-    public function processFile()
-    {
-        $this->processCategoriesNodes();
-        $this->processOffersNodes();
-
     }
 
     public function processCategoriesNodes()
@@ -293,5 +488,10 @@ class VKSynchronizerService
         $item->status_date  = date('Y-m-d H:i:s');
         $item->synchronized = false;
         $item->save();
+    }
+
+    private function sleep()
+    {
+        sleep(1);
     }
 }
