@@ -36,6 +36,7 @@ class VKSynchronizerService
 
         $this->loadAddedPhotosToVK();
         $this->loadAddedCategoryToVK();
+        $this->loadAddedOffersToVK();
     }
 
     private function loadAddedPhotosToVK()
@@ -43,10 +44,13 @@ class VKSynchronizerService
         $pictures = $this->getAvailablePicturesToUpload();
 
         try{
-            $result = $this->VKApiClient->photos()->getMarketUploadServer($this->token, ['group_id' => $this->group]);
+            $result = $this->VKApiClient->photos()->getMarketUploadServer($this->token, [
+                'group_id' => $this->group,
+                'main_photo' => 1
+            ]);
             sleep(1);
         } catch (Exception $e) {
-            Log::critical($e->getMessage());
+            Log::critical('getMarketUploadServer: '.$e->getMessage());
             return false;
         }
 
@@ -69,7 +73,7 @@ class VKSynchronizerService
                     $picture->synchronize_date = date('Y-m-d H:i:s');
                     $picture->save();
                 } catch (Exception $e) {
-                    Log::critical($e->getMessage());
+                    Log::critical('load picture for offer '.$picture->offer->shop_id.': '.$e->getMessage());
                     return false;
                 }
             }
@@ -146,7 +150,7 @@ class VKSynchronizerService
 
                 sleep(1);
             } catch(Exception $e) {
-                Log::critical($e->getMessage());
+                Log::critical('load category '.$category->shop_id.': '.$e->getMessage());
             }
         }
     }
@@ -162,6 +166,80 @@ class VKSynchronizerService
         ->get();
 
         return $categories;
+    }
+
+    private function loadAddedOffersToVK()
+    {
+        $offers = $this->getAvailableOffersToUpload();
+
+        foreach ($offers as $offer) {
+            $picturesIds = $this->prepareOfferPicturesVKIds($offer);
+
+            $paramsArray = [
+                'owner_id' => '-'.$this->group,
+                'name' => $offer->name,
+                'description' => $offer->description,
+                'category_id' => 1,
+                'price' => $offer->price.'.00',
+                'main_photo_id' => $picturesIds['main_picture'],
+                'photo_ids' => $picturesIds['pictures']
+            ];
+
+            try {
+                $response = $this->VKApiClient->market()->add($this->token, $paramsArray);
+                sleep(1);
+                $offer->vk_id = $response['market_item_id'];
+                $offer->synchronized = true;
+                $offer->synchronize_date = date('Y-m-d H:i:s');
+                $offer->save();
+            } catch(Exception $e) {
+                Log::critical('load offer '.$offer->shop_id.':'.$e->getMessage());
+            }
+
+            $paramsArray = [
+                'owner_id' => '-'.$this->group,
+                'item_id' => $offer->vk_id,
+                'album_ids' => $offer->category->vk_id,
+            ];
+
+            try {
+                $response = $this->VKApiClient->market()->addToAlbum($this->token, $paramsArray);
+            } catch(Exception $e) {
+                Log::critical('add to album for offer '.$offer->shop_id.':'.$e->getMessage());
+            }
+        }
+    }
+
+    private function prepareOfferPicturesVKIds($offer)
+    {
+        $picturesVKIds = $offer->pictures
+            ->where('status', 'added')
+            ->where('synchronized', true)
+            ->pluck('vk_id');
+
+        $picturesVKIds = $picturesVKIds->toArray();
+
+        $mainPicture  = array_shift($picturesVKIds);
+        $restPictures = implode(',', $picturesVKIds);
+
+        return [
+            'main_picture' => $mainPicture,
+            'pictures' => $restPictures
+        ];
+    }
+
+    private function getAvailableOffersToUpload()
+    {
+        $categorySettingsFilter = $this->getCategoriesSettingsFilter();
+
+        $offers = Offer::whereHas('category', function (Builder $query) use ($categorySettingsFilter) {
+            $query->whereIn('can_load_to_vk', $categorySettingsFilter);
+        })
+        ->where('synchronized', false)
+        ->where('status', 'added')
+        ->get();
+
+        return $offers;
     }
 
     private function getCategoriesSettingsFilter()
@@ -347,21 +425,40 @@ class VKSynchronizerService
         $offer->shop_category_id   = $offerNode->getElementsByTagName('categoryId')[0]->nodeValue;
         $offer->name               = $offerNode->getElementsByTagName('name')[0]->nodeValue;
         $offer->price              = $offerNode->getElementsByTagName('price')[0]->nodeValue;
-        $offer->vendor_code        = $offerNode->getElementsByTagName('name')[0]->nodeValue;
+        $offer->vendor_code        = $offerNode->getElementsByTagName('vendorCode')[0]->nodeValue;
 
-        $paramsText = '';
+        $fullDescription = '';
+        $fullDescription .= 'Артикул: '.$offer->vendor_code.PHP_EOL;
 
-        $params = $offerNode->getElementsByTagName('param');
+        $params            = $offerNode->getElementsByTagName('param');
+        $paramsText        = '';
+        $paramsDescription = '';
+
         foreach($params AS $paramNode)
         {
-            $paramsText .= $paramNode->getAttribute('name').': '.$paramNode->nodeValue.'\n';
+            if($paramNode->getAttribute('name') == 'Описание') {
+                $paramsDescription = $paramNode->nodeValue;
+            } else {
+                $paramsText .= $paramNode->getAttribute('name').': '.$paramNode->nodeValue.PHP_EOL;
+            }
         }
 
-        $description = trim($offerNode->getElementsByTagName('description')[0]->nodeValue);
+        $fullDescription .= $paramsText;
 
-        $offer->description = $paramsText.'\n'.$description;
+        if(isset($offerNode->getElementsByTagName('description')[0])) {
+            $nodeDescription = trim($offerNode->getElementsByTagName('description')[0]->nodeValue);
+            $fullDescription .= PHP_EOL.$nodeDescription.PHP_EOL;
+        } else {
+            if($paramsDescription) {
+                $fullDescription .= PHP_EOL.$paramsDescription.PHP_EOL;
+            }
+        }
 
-        $offer->check_sum          = $this->buildOfferCheckSum($offerNode);
+        $fullDescription .= PHP_EOL.'Пожалуйста, поделитесь ссылкой с друзьями';
+
+        $offer->description = $fullDescription;
+
+        $offer->check_sum = $this->buildOfferCheckSum($offerNode);
     }
 
     private function actualizePictures($offer, $offerNode)
