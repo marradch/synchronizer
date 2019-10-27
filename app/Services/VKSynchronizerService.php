@@ -41,8 +41,6 @@ class VKSynchronizerService
 
     private function loadAddedPhotosToVK()
     {
-        $pictures = $this->getAvailablePicturesToUpload();
-
         try{
             $result = $this->VKApiClient->photos()->getMarketUploadServer($this->token, [
                 'group_id' => $this->group,
@@ -56,7 +54,7 @@ class VKSynchronizerService
 
         $uploadUrl = $result['upload_url'];
 
-        foreach ($pictures as $picture)
+        foreach ($this->getAvailablePicturesToUpload() as $picture)
         {
             $resultArray = $this->uploadPictureToServer($uploadUrl, $picture);
             sleep(1);
@@ -124,8 +122,11 @@ class VKSynchronizerService
             });
         })
         ->where('synchronized', false)
-        ->where('status', 'added')
-        ->get();
+        ->where('status', 'added');
+
+        foreach($pictures->cursor() as $picture) {
+            yield $picture;
+        }
 
         return $pictures;
     }
