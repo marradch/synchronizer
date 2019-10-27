@@ -35,13 +35,13 @@ class Picture extends Model
         $path = public_path() . '/downloads/' . basename($this->url);
         if (!file_exists($path)) {
             Log::warning("Picture at $path not found, using default one");
-            $path = $this->getDefaultPicture();
+            $path = $this->getDefaultAttribute();
         }
 
         return $path;
     }
 
-    private function getDefaultPicture()
+    public function getDefaultAttribute()
     {
         return public_path() . '/data/default.png';
     }

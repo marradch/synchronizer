@@ -56,9 +56,17 @@ class VKSynchronizerService
             try {
                 $resultArray = $this->VKApiClient->getRequest()->upload($uploadUrl, 'photo', $picture->local_path);
                 sleep(1);
-            } catch (Exception $e) {
-                Log::critical("Picture {$picture->url}($picture->id) wasn't uploaded: {$e->getMessage()}");
-                continue;
+            } catch (\Throwable $e) {
+                Log::critical("Picture {$picture->url}($picture->id) wasn't uploaded: {$e->getMessage()}, upload default one");
+            }
+            if (!isset($resultArray)) {
+                try {
+                    $resultArray = $this->VKApiClient->getRequest()->upload($uploadUrl, 'photo', $picture->default);
+                    sleep(1);
+                } catch (\Throwable $e) {
+                    Log::critical("Default picture {$picture->url}($picture->id) wasn't uploaded: {$e->getMessage()}, skip");
+                    continue;
+                }
             }
 
             try {
