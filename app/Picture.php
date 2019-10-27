@@ -3,7 +3,14 @@
 namespace App;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 
+/**
+ * Class Picture
+ *
+ * @property string $local_path
+ * @package App
+ */
 class Picture extends Model
 {
     protected $fillable = [
@@ -21,5 +28,21 @@ class Picture extends Model
     public function offer()
     {
         return $this->belongsTo('App\Offer', 'offer_id', 'id');
+    }
+
+    public function getLocalPathAttribute()
+    {
+        $path = public_path() . '/downloads/' . basename($this->url);
+        if (!file_exists($path)) {
+            Log::warning("Picture at $path not found, using default one");
+            $path = $this->getDefaultPicture();
+        }
+
+        return $path;
+    }
+
+    private function getDefaultPicture()
+    {
+        return public_path() . '/data/default.png';
     }
 }

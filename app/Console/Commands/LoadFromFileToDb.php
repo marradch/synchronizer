@@ -4,8 +4,9 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Services\VKSynchronizerService;
+use Illuminate\Support\Facades\Log;
 
-class ActualizeTableFromFile extends Command
+class LoadFromFileToDb extends Command
 {
     /**
      * The name and signature of the console command.
@@ -38,6 +39,13 @@ class ActualizeTableFromFile extends Command
      */
     public function handle()
     {
-        (new VKSynchronizerService())->processFile();
+        try {
+            (new VKSynchronizerService())->processFile();
+        } catch (\Exception $e) {
+            Log::critical("Exception while importing file: {$e->getMessage()}");
+            return 1;
+        }
+
+        return 0;
     }
 }

@@ -2,23 +2,20 @@
 
 namespace App\Services;
 
-use CURLFile;
 use DOMDocument;
 use Exception;
-use Illuminate\Routing\Pipeline;
 use VK\Client\VKApiClient;
 use App\Token;
 use App\Settings;
 use App\Category;
 use App\Offer;
 use App\Picture;
-use App\Services\VKAuthService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Builder;
-use VK\Exceptions;
 
 class VKSynchronizerService
 {
+    /** @var DOMDocument $dom */
     private $dom;
     private $group;
     private $token;
@@ -32,7 +29,9 @@ class VKSynchronizerService
     public function loadAllToVK()
     {
         $canLoadToVK = $this->checkAbilityOfLoading();
-        if(!$canLoadToVK) return;
+        if (!$canLoadToVK) {
+            return;
+        }
 
         $this->loadAddedPhotosToVK();
         $this->loadAddedCategoryToVK();
@@ -41,74 +40,40 @@ class VKSynchronizerService
 
     private function loadAddedPhotosToVK()
     {
-        try{
+        try {
             $result = $this->VKApiClient->photos()->getMarketUploadServer($this->token, [
                 'group_id' => $this->group,
                 'main_photo' => 1
             ]);
             sleep(1);
         } catch (Exception $e) {
-            Log::critical('getMarketUploadServer: '.$e->getMessage());
-            return false;
+            Log::critical('getMarketUploadServer: ' . $e->getMessage());
         }
 
         $uploadUrl = $result['upload_url'];
 
-        foreach ($this->getAvailablePicturesToUpload() as $picture)
-        {
-            $resultArray = $this->uploadPictureToServer($uploadUrl, $picture);
-            sleep(1);
-
-            if($resultArray) {
-                try{
-                    $resultArray['group_id'] = $this->group;
-                    $result = $this->VKApiClient->photos()->saveMarketPhoto($this->token, $resultArray);
-                    sleep(1);
-                    $vk_id = $result[0]['id'];
-
-                    $picture->vk_id = $vk_id;
-                    $picture->synchronized = true;
-                    $picture->synchronize_date = date('Y-m-d H:i:s');
-                    $picture->save();
-                } catch (Exception $e) {
-                    Log::critical('load picture for offer '.$picture->offer->shop_id.': '.$e->getMessage());
-                    return false;
-                }
-            }
-        }
-    }
-
-    private function uploadPictureToServer($uploadUrl, $picture)
-    {
-        $ch = curl_init($uploadUrl);
-
-        $path = public_path().'/downloads/' . basename($picture->url);
-        $cfile = new CURLFile($path);
-
-        $data = ['file' => $cfile];
-        curl_setopt($ch, CURLOPT_POST,1);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-        $uploadResult = curl_exec($ch);
-        curl_close($ch);
-
-        $decodedResult = json_decode($uploadResult);
-
-        $returnArray = [];
-
-        if(!empty($decodedResult->photo)) {
-            $returnArray['server'] = $decodedResult->server;
-            $returnArray['photo'] = stripslashes($decodedResult->photo);
-            $returnArray['hash'] = $decodedResult->hash;
-            if(!empty($decodedResult->crop_data)) {
-                $returnArray['crop_data'] = $decodedResult->crop_data;
-                $returnArray['crop_hash'] = $decodedResult->crop_hash;
+        foreach ($this->getAvailablePicturesToUpload() as $picture) {
+            try {
+                $resultArray = $this->VKApiClient->getRequest()->upload($uploadUrl, 'photo', $picture->local_path);
+                sleep(1);
+            } catch (Exception $e) {
+                Log::critical("Picture {$picture->url}($picture->id) wasn't uploaded: {$e->getMessage()}");
+                continue;
             }
 
-            return $returnArray;
-        } else {
-            return false;
+            try {
+                $resultArray['group_id'] = $this->group;
+                $result = $this->VKApiClient->photos()->saveMarketPhoto($this->token, $resultArray);
+                sleep(1);
+                $vk_id = $result[0]['id'];
+
+                $picture->vk_id = $vk_id;
+                $picture->synchronized = true;
+                $picture->synchronize_date = date('Y-m-d H:i:s');
+                $picture->save();
+            } catch (Exception $e) {
+                Log::critical('load picture for offer ' . $picture->offer->shop_id . ': ' . $e->getMessage());
+            }
         }
     }
 
@@ -121,10 +86,10 @@ class VKSynchronizerService
                 $query->whereIn('can_load_to_vk', $categorySettingsFilter);
             });
         })
-        ->where('synchronized', false)
-        ->where('status', 'added');
+            ->where('synchronized', false)
+            ->where('status', 'added');
 
-        foreach($pictures->cursor() as $picture) {
+        foreach ($pictures->cursor() as $picture) {
             yield $picture;
         }
 
@@ -133,14 +98,19 @@ class VKSynchronizerService
 
     private function loadAddedCategoryToVK()
     {
-        $categories = $this->getAvailableCategoriesToUpload();
-        foreach($categories as $category) {
-            try{
+        foreach ($this->getAvailableCategoriesToUpload() as $category) {
+            try {
+                $defaultCategoryPicture = $this->getDefaultCategoryPicture($category);
                 $paramsArray = [
-                    'owner_id' => '-'.$this->group,
-                    'title'    => $category->prepared_name,
-                    'photo_id' => $category->offers->first()->pictures->first()->vk_id
+                    'owner_id' => '-' . $this->group,
+                    'title' => $category->prepared_name
                 ];
+                if (!$defaultCategoryPicture) {
+                    Log::warning("Category {$category->name}($category->id) hasn't the picture");
+                } else {
+                    $paramsArray['photo_id'] = $defaultCategoryPicture;
+                }
+
                 $response = $this->VKApiClient->market()->addAlbum($this->token, $paramsArray);
                 $vk_id = $response['market_album_id'];
 
@@ -150,8 +120,8 @@ class VKSynchronizerService
                 $category->save();
 
                 sleep(1);
-            } catch(Exception $e) {
-                Log::critical('load category '.$category->shop_id.': '.$e->getMessage());
+            } catch (Exception $e) {
+                Log::critical('load category ' . $category->shop_id . ': ' . $e->getMessage());
             }
         }
     }
@@ -161,27 +131,26 @@ class VKSynchronizerService
         $categorySettingsFilter = $this->getCategoriesSettingsFilter();
 
         $categories = Category::whereIn('can_load_to_vk', $categorySettingsFilter)
-        ->where('synchronized', false)
-        ->where('status', 'added')
-        ->has('offers')
-        ->get();
+            ->where('synchronized', false)
+            ->where('status', 'added')
+            ->has('offers');
 
-        return $categories;
+        foreach ($categories->cursor() as $category) {
+            yield $category;
+        }
     }
 
     private function loadAddedOffersToVK()
     {
-        $offers = $this->getAvailableOffersToUpload();
-
-        foreach ($offers as $offer) {
+        foreach ($this->getAvailableOffersToUpload() as $offer) {
             $picturesIds = $this->prepareOfferPicturesVKIds($offer);
 
             $paramsArray = [
-                'owner_id' => '-'.$this->group,
+                'owner_id' => '-' . $this->group,
                 'name' => $offer->name,
                 'description' => $offer->description,
                 'category_id' => 1,
-                'price' => $offer->price.'.00',
+                'price' => $offer->price . '.00',
                 'main_photo_id' => $picturesIds['main_picture'],
                 'photo_ids' => $picturesIds['pictures']
             ];
@@ -193,20 +162,20 @@ class VKSynchronizerService
                 $offer->synchronized = true;
                 $offer->synchronize_date = date('Y-m-d H:i:s');
                 $offer->save();
-            } catch(Exception $e) {
-                Log::critical('load offer '.$offer->shop_id.':'.$e->getMessage());
+            } catch (Exception $e) {
+                Log::critical('load offer ' . $offer->shop_id . ':' . $e->getMessage());
             }
 
             $paramsArray = [
-                'owner_id' => '-'.$this->group,
+                'owner_id' => '-' . $this->group,
                 'item_id' => $offer->vk_id,
                 'album_ids' => $offer->category->vk_id,
             ];
 
             try {
-                $response = $this->VKApiClient->market()->addToAlbum($this->token, $paramsArray);
-            } catch(Exception $e) {
-                Log::critical('add to album for offer '.$offer->shop_id.':'.$e->getMessage());
+                $this->VKApiClient->market()->addToAlbum($this->token, $paramsArray);
+            } catch (Exception $e) {
+                Log::critical('add to album for offer ' . $offer->shop_id . ':' . $e->getMessage());
             }
         }
     }
@@ -220,7 +189,7 @@ class VKSynchronizerService
 
         $picturesVKIds = $picturesVKIds->toArray();
 
-        $mainPicture  = array_shift($picturesVKIds);
+        $mainPicture = array_shift($picturesVKIds);
         $restPictures = implode(',', $picturesVKIds);
 
         return [
@@ -236,17 +205,18 @@ class VKSynchronizerService
         $offers = Offer::whereHas('category', function (Builder $query) use ($categorySettingsFilter) {
             $query->whereIn('can_load_to_vk', $categorySettingsFilter);
         })
-        ->where('synchronized', false)
-        ->where('status', 'added')
-        ->get();
+            ->where('synchronized', false)
+            ->where('status', 'added');
 
-        return $offers;
+        foreach ($offers->cursor() as $offer) {
+            yield $offer;
+        }
     }
 
     private function getCategoriesSettingsFilter()
     {
-        $categorySettingsFilter = [ 'yes' ];
-        if(env('SHOP_CAN_LOAD_NEW_DEFAULT', null) == 'yes') {
+        $categorySettingsFilter = ['yes'];
+        if (env('SHOP_CAN_LOAD_NEW_DEFAULT', null) == 'yes') {
             $categorySettingsFilter[] = 'default';
         }
 
@@ -256,13 +226,13 @@ class VKSynchronizerService
     private function checkAbilityOfLoading()
     {
         $isTokenSet = $this->setToken();
-        if(!$isTokenSet) {
+        if (!$isTokenSet) {
             Log::critical('Токен либо не установлен. Либо не действительный');
             return false;
         }
 
         $isGroupSet = $this->setGroup();
-        if(!$isGroupSet) {
+        if (!$isGroupSet) {
             Log::critical('Нет установленной группы для загрузки фотографий');
             return false;
         }
@@ -273,7 +243,7 @@ class VKSynchronizerService
     private function setGroup()
     {
         $group = Settings::where('name', 'group')->first();
-        if($group) {
+        if ($group) {
             $this->group = $group->value;
             return true;
         } else {
@@ -285,7 +255,7 @@ class VKSynchronizerService
     {
         $hasToken = (new VKAuthService())->checkOfflineToken();
         sleep(1);
-        if($hasToken) {
+        if ($hasToken) {
             $this->token = Token::first()->token;
             return true;
         }
@@ -304,6 +274,9 @@ class VKSynchronizerService
     private function initiateDOM()
     {
         $filePath = env('SHOP_IMPORT_FILE_URL', null);
+        if (!$filePath) {
+            throw new Exception('Please setup SHOP_IMPORT_FILE_URL to env');
+        }
         $dom = new DOMDocument();
         $dom->preserveWhiteSpace = false;
         $dom->load($filePath);
@@ -315,14 +288,13 @@ class VKSynchronizerService
         $categories = $this->dom->getElementsByTagName('category');
 
         $allIds = [];
-        foreach($categories AS $categoryNode)
-        {
+        foreach ($categories AS $categoryNode) {
             $shop_id = $categoryNode->getAttribute('id');
             $allIds[] = $shop_id;
 
             $category = Category::where('shop_id', $shop_id)->first();
 
-            if($category) {
+            if ($category) {
                 $this->editCategory($category, $categoryNode);
             } else {
                 $this->addCategory($categoryNode);
@@ -330,7 +302,7 @@ class VKSynchronizerService
         }
 
         $deletedCategories = Category::whereNotIn('shop_id', $allIds)->get();
-        foreach($deletedCategories as $category) {
+        foreach ($deletedCategories as $category) {
             $this->setDeleteStatus($category);
         }
 
@@ -339,16 +311,17 @@ class VKSynchronizerService
 
     public function processOffersNodes()
     {
+        /** @var \DOMNodeList $offers */
         $offers = $this->dom->getElementsByTagName('offer');
         $allIds = [];
-        foreach($offers AS $offerNode)
-        {
+        /** @var \DOMNode $offerNode */
+        foreach ($offers as $offerNode) {
             $shop_id = $offerNode->getAttribute('id');
             $allIds[] = $shop_id;
 
             $offer = Offer::where('shop_id', $shop_id)->first();
 
-            if($offer) {
+            if ($offer) {
                 $this->editOffer($offer, $offerNode);
             } else {
                 $this->addOffer($offerNode);
@@ -356,28 +329,32 @@ class VKSynchronizerService
         }
 
         $deletedOffers = Offer::whereNotIn('shop_id', $allIds)->get();
-        foreach($deletedOffers as $offer) {
+        foreach ($deletedOffers as $offer) {
             $this->setDeleteStatus($offer);
         }
     }
 
-    private function addOffer($offerNode)
+    /**
+     * @param \DOMNode $offerNode
+     */
+    private function addOffer(\DOMNode $offerNode)
     {
-        $price = (int) $offerNode->getElementsByTagName('price')[0]->nodeValue;
-        if($price == 0) return;
+        $price = (int)$offerNode->getElementsByTagName('price')[0]->nodeValue;
+        if ($price == 0) {
+            return;
+        }
 
-        $offer               = new Offer();
+        $offer = new Offer();
 
         $this->fillOfferFromNode($offer, $offerNode);
 
-        $offer->status       = 'added';
-        $offer->status_date  = date('Y-m-d H:i:s');
+        $offer->status = 'added';
+        $offer->status_date = date('Y-m-d H:i:s');
         $offer->synchronized = false;
         $offer->save();
 
         $pictures = $offerNode->getElementsByTagName('picture');
-        foreach($pictures AS $pictureNode)
-        {
+        foreach ($pictures AS $pictureNode) {
             $this->addPicture($offer->id, $pictureNode);
         }
     }
@@ -385,12 +362,14 @@ class VKSynchronizerService
     private function editOffer($offer, $offerNode)
     {
         $currentCheckSum = $this->buildOfferCheckSum($offerNode);
-        if($currentCheckSum == $offer->check_sum) return;
+        if ($currentCheckSum == $offer->check_sum) {
+            return;
+        }
 
         $this->fillOfferFromNode($offer, $offerNode);
 
-        $offer->status       = 'edited';
-        $offer->status_date  = date('Y-m-d H:i:s');
+        $offer->status = 'edited';
+        $offer->status_date = date('Y-m-d H:i:s');
         $offer->synchronized = false;
         $offer->save();
 
@@ -400,20 +379,18 @@ class VKSynchronizerService
     private function buildOfferCheckSum($offerNode)
     {
         $checkSumArray = [];
-        $checkSumArray[]     = $offerNode->getElementsByTagName('categoryId')[0]->nodeValue;
-        $checkSumArray[]     = $offerNode->getElementsByTagName('name')[0]->nodeValue;
-        $checkSumArray[]     = $offerNode->getElementsByTagName('price')[0]->nodeValue;;
-        $checkSumArray[]     = $offerNode->getElementsByTagName('name')[0]->nodeValue;
+        $checkSumArray[] = $offerNode->getElementsByTagName('categoryId')[0]->nodeValue;
+        $checkSumArray[] = $offerNode->getElementsByTagName('name')[0]->nodeValue;
+        $checkSumArray[] = $offerNode->getElementsByTagName('price')[0]->nodeValue;;
+        $checkSumArray[] = $offerNode->getElementsByTagName('name')[0]->nodeValue;
         $params = $offerNode->getElementsByTagName('param');
-        foreach($params AS $paramNode)
-        {
+        foreach ($params AS $paramNode) {
             $checkSumArray[] = $paramNode->getAttribute('name');
             $checkSumArray[] = $paramNode->nodeValue;
         }
         $checkSumArray[] = $offerNode->getElementsByTagName('description')[0]->nodeValue;
         $pictures = $offerNode->getElementsByTagName('picture');
-        foreach($pictures AS $picture)
-        {
+        foreach ($pictures AS $picture) {
             $checkSumArray[] = $picture->nodeValue;
         }
 
@@ -422,40 +399,39 @@ class VKSynchronizerService
 
     private function fillOfferFromNode($offer, $offerNode)
     {
-        $offer->shop_id            = $offerNode->getAttribute('id');
-        $offer->shop_category_id   = $offerNode->getElementsByTagName('categoryId')[0]->nodeValue;
-        $offer->name               = $offerNode->getElementsByTagName('name')[0]->nodeValue;
-        $offer->price              = $offerNode->getElementsByTagName('price')[0]->nodeValue;
-        $offer->vendor_code        = $offerNode->getElementsByTagName('vendorCode')[0]->nodeValue;
+        $offer->shop_id = $offerNode->getAttribute('id');
+        $offer->shop_category_id = $offerNode->getElementsByTagName('categoryId')[0]->nodeValue;
+        $offer->name = $offerNode->getElementsByTagName('name')[0]->nodeValue;
+        $offer->price = $offerNode->getElementsByTagName('price')[0]->nodeValue;
+        $offer->vendor_code = $offerNode->getElementsByTagName('vendorCode')[0]->nodeValue;
 
         $fullDescription = '';
-        $fullDescription .= 'Артикул: '.$offer->vendor_code.PHP_EOL;
+        $fullDescription .= 'Артикул: ' . $offer->vendor_code . PHP_EOL;
 
-        $params            = $offerNode->getElementsByTagName('param');
-        $paramsText        = '';
+        $params = $offerNode->getElementsByTagName('param');
+        $paramsText = '';
         $paramsDescription = '';
 
-        foreach($params AS $paramNode)
-        {
-            if($paramNode->getAttribute('name') == 'Описание') {
+        foreach ($params AS $paramNode) {
+            if ($paramNode->getAttribute('name') == 'Описание') {
                 $paramsDescription = $paramNode->nodeValue;
             } else {
-                $paramsText .= $paramNode->getAttribute('name').': '.$paramNode->nodeValue.PHP_EOL;
+                $paramsText .= $paramNode->getAttribute('name') . ': ' . $paramNode->nodeValue . PHP_EOL;
             }
         }
 
         $fullDescription .= $paramsText;
 
-        if(isset($offerNode->getElementsByTagName('description')[0])) {
+        if (isset($offerNode->getElementsByTagName('description')[0])) {
             $nodeDescription = trim($offerNode->getElementsByTagName('description')[0]->nodeValue);
-            $fullDescription .= PHP_EOL.$nodeDescription.PHP_EOL;
+            $fullDescription .= PHP_EOL . $nodeDescription . PHP_EOL;
         } else {
-            if($paramsDescription) {
-                $fullDescription .= PHP_EOL.$paramsDescription.PHP_EOL;
+            if ($paramsDescription) {
+                $fullDescription .= PHP_EOL . $paramsDescription . PHP_EOL;
             }
         }
 
-        $fullDescription .= PHP_EOL.'Пожалуйста, поделитесь ссылкой с друзьями';
+        $fullDescription .= PHP_EOL . 'Пожалуйста, поделитесь ссылкой с друзьями';
 
         $offer->description = $fullDescription;
 
@@ -468,8 +444,7 @@ class VKSynchronizerService
 
         $actualUrls = [];
 
-        foreach($pictures AS $pictureNode)
-        {
+        foreach ($pictures AS $pictureNode) {
             $actualUrls[] = trim($pictureNode->nodeValue);
 
             $picture = Picture::where([
@@ -478,7 +453,7 @@ class VKSynchronizerService
                 ['status', '<>', 'deleted'],
             ])->first();
 
-            if(!$picture) {
+            if (!$picture) {
                 $this->addPicture($offer->id, $pictureNode);
             }
         }
@@ -488,7 +463,7 @@ class VKSynchronizerService
             ['status', '<>', 'deleted']
         ])->whereNotIn('url', $actualUrls)->get();
 
-        foreach($deletedPictures as $picture) {
+        foreach ($deletedPictures as $picture) {
             $this->setDeleteStatus($picture);
         }
     }
@@ -496,35 +471,64 @@ class VKSynchronizerService
     private function addPicture($offerId, $pictureNode)
     {
         $picture = new Picture();
-        $picture->offer_id     = $offerId;
-        $picture->url          = trim($pictureNode->nodeValue);
-        $picture->status       = 'added';
-        $picture->status_date  = date('Y-m-d H:i:s');
+        $picture->offer_id = $offerId;
+        $picture->url = trim($pictureNode->nodeValue);
+        $picture->status = 'added';
+        $picture->status_date = date('Y-m-d H:i:s');
         $picture->synchronized = false;
         $picture->save();
 
         $this->downloadFile($pictureNode->nodeValue);
     }
 
-    private function downloadFile($url)
+    function retry($f, $delay = 10, $retries = 3)
     {
-        $path = public_path().'/downloads/' . basename($url);
-
-        $newfname = $path;
-        $file = fopen ($url, 'rb');
-        if ($file) {
-            $newf = fopen ($newfname, 'wb');
-            if ($newf) {
-                while(!feof($file)) {
-                    fwrite($newf, fread($file, 1024 * 8), 1024 * 8);
-                }
+        try {
+            return $f();
+        } catch (Exception $e) {
+            if ($retries > 0) {
+                sleep($delay);
+                return $this->retry($f, $delay, $retries - 1);
+            } else {
+                throw $e;
             }
         }
-        if ($file) {
-            fclose($file);
-        }
-        if ($newf) {
-            fclose($newf);
+    }
+
+    private function downloadFile($url)
+    {
+        $path = public_path() . '/downloads/' . basename($url);
+        $this->retry(function ($url) use ($path) {
+            $this->internalDownloadFile($url, $path);
+        });
+    }
+
+    /**
+     * @param $url
+     * @param string $path
+     * @throws Exception
+     */
+    private function internalDownloadFile($url, string $path): void
+    {
+        $fp = fopen($path, 'w+');
+        $ch = curl_init(str_replace(" ", "%20", $url));
+        curl_setopt($ch, CURLOPT_TIMEOUT, 50);
+        curl_setopt($ch, CURLOPT_FILE, $fp);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_exec($ch);
+        curl_close($ch);
+        $curl_error_code = curl_errno($ch);
+        $curl_error = curl_error($ch);
+        curl_close($ch);
+        fclose($fp);
+
+        if ($curl_error || $curl_error_code) {
+            $error_msg = "Failed curl request. Curl error {$curl_error_code}";
+            if ($curl_error) {
+                $error_msg .= ": {$curl_error}";
+            }
+            $error_msg .= '.';
+            throw new Exception($error_msg);
         }
     }
 
@@ -533,7 +537,9 @@ class VKSynchronizerService
         $categories = Category::all();
         foreach ($categories as $category) {
 
-            if($category->status == 'deleted' || $category->synchronized) continue;
+            if ($category->status == 'deleted' || $category->synchronized) {
+                continue;
+            }
 
             $category->prepareName();
             $category->save();
@@ -542,54 +548,58 @@ class VKSynchronizerService
 
     private function addCategory($categoryNode)
     {
-        $category                     = new Category();
-        $category->shop_id            = $categoryNode->getAttribute('id');
-        $parentId                     = $categoryNode->getAttribute('parentId');
-        if($parentId) {
+        $category = new Category();
+        $category->shop_id = $categoryNode->getAttribute('id');
+        $parentId = $categoryNode->getAttribute('parentId');
+        if ($parentId) {
             $category->shop_parent_id = $categoryNode->getAttribute('parentId');
         }
-        $category->name               = $categoryNode->nodeValue;
-        $category->check_sum          = md5($category->shop_parent_id
-            .$category->name);
-        $category->status             = 'added';
-        $category->status_date        = date('Y-m-d H:i:s');
-        $category->synchronized       = false;
+        $category->name = $categoryNode->nodeValue;
+        $category->check_sum = md5($category->shop_parent_id
+            . $category->name);
+        $category->status = 'added';
+        $category->status_date = date('Y-m-d H:i:s');
+        $category->synchronized = false;
         $category->save();
     }
 
     private function editCategory($category, $categoryNode)
     {
-        $parentToCheck     = ($category->shop_parent_id) ? $categoryNode->getAttribute('parentId') : '';
+        $parentToCheck = ($category->shop_parent_id) ? $categoryNode->getAttribute('parentId') : '';
         $current_check_sum = md5($parentToCheck
-                           .$category->name);
-        $new_check_sum     = md5($categoryNode->getAttribute('parentId')
-                           .$categoryNode->nodeValue);
-        if($current_check_sum != $new_check_sum) {
-            $category->name               = $categoryNode->nodeValue;
-            $parentId                     = $categoryNode->getAttribute('parentId');
+            . $category->name);
+        $new_check_sum = md5($categoryNode->getAttribute('parentId')
+            . $categoryNode->nodeValue);
+        if ($current_check_sum != $new_check_sum) {
+            $category->name = $categoryNode->nodeValue;
+            $parentId = $categoryNode->getAttribute('parentId');
             if ($parentId) {
                 $category->shop_parent_id = $categoryNode->getAttribute('parentId');
             } else {
                 $category->shop_parent_id = 0;
             }
-            $category->check_sum          = $new_check_sum;
-            $category->status             = 'edited';
-            $category->status_date        = date('Y-m-d H:i:s');
-            $category->synchronized       = false;
+            $category->check_sum = $new_check_sum;
+            $category->status = 'edited';
+            $category->status_date = date('Y-m-d H:i:s');
+            $category->synchronized = false;
             $category->save();
         }
     }
 
     private function setDeleteStatus($item)
     {
-        $item->status       = 'deleted';
-        $item->status_date  = date('Y-m-d H:i:s');
+        $item->status = 'deleted';
+        $item->status_date = date('Y-m-d H:i:s');
         $item->synchronized = false;
         $item->save();
     }
 
-    private function sleep()
+    /**
+     * @param $category
+     * @return mixed
+     */
+    private function getDefaultCategoryPicture($category)
     {
-        sleep(1);
+        return $category->offers->first()->pictures->first()->vk_id;
     }
 }
