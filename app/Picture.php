@@ -2,7 +2,6 @@
 
 namespace App;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -11,16 +10,18 @@ use Illuminate\Support\Facades\Log;
  * @property string $local_path
  * @package App
  */
-class Picture extends Model
+class Picture extends SynchronizedModel
 {
     protected $fillable = [
         'offer_id',
         'url',
+        'delete_sign',
         'status',
         'status_date',
         'synchronized',
         'synchronize_date',
         'vk_id',
+        'vk_loading_error',
     ];
 
     protected $table = 'pictures';
@@ -43,6 +44,6 @@ class Picture extends Model
 
     public function getDefaultAttribute()
     {
-        return public_path() . '/data/default.png';
+        return public_path() . env('SHOP_DEFAULT_PICTURE_PATH', null);
     }
 }

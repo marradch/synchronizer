@@ -2,9 +2,7 @@
 
 namespace App;
 
-use Illuminate\Database\Eloquent\Model;
-
-class Category extends Model
+class Category extends SynchronizedModel
 {
     protected $fillable = [
         'shop_id',
@@ -13,11 +11,13 @@ class Category extends Model
         'prepared_name',
         'is_final',
         'check_sum',
+        'delete_sign',
         'status',
         'status_date',
         'synchronized',
         'synchronize_date',
         'vk_id',
+        'vk_loading_error',
         'can_load_to_vk',
     ];
 
@@ -96,5 +96,14 @@ class Category extends Model
         }
 
         return $parentsArray;
+    }
+
+    /**
+     * @param $category
+     * @return mixed
+     */
+    public function getPictureAttribute()
+    {
+        return $this->offers->first()->pictures->where('status', '<>', 'deleted')->first();
     }
 }

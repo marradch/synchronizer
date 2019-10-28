@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Services\VKSynchronizerService;
+use App\Services\DBVKSynchronizerService;
 
 class LoadOffersToVk extends Command
 {
@@ -38,6 +38,6 @@ class LoadOffersToVk extends Command
      */
     public function handle()
     {
-        (new VKSynchronizerService())->loadAllToVK();
+        (new DBVKSynchronizerService())->loadAllToVK();
     }
 }

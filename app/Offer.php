@@ -2,9 +2,7 @@
 
 namespace App;
 
-use Illuminate\Database\Eloquent\Model;
-
-class Offer extends Model
+class Offer extends SynchronizedModel
 {
     protected $fillable = [
         'shop_id',
@@ -14,11 +12,13 @@ class Offer extends Model
         'vendor_code',
         'description',
         'check_sum',
+        'delete_sign',
         'status',
         'status_date',
         'synchronized',
         'synchronize_date',
         'vk_id',
+        'vk_loading_error',
     ];
 
     protected $table = 'offers';
@@ -31,6 +31,24 @@ class Offer extends Model
     public function pictures()
     {
         return $this->hasMany('App\Picture', 'offer_id', 'id');
+    }
+
+    public function prepareOfferPicturesVKIds()
+    {
+        $picturesVKIds = $this->pictures
+            ->where('status', 'added')
+            ->where('synchronized', true)
+            ->pluck('vk_id');
+
+        $picturesVKIds = $picturesVKIds->toArray();
+
+        $mainPicture = array_shift($picturesVKIds);
+        $restPictures = implode(',', $picturesVKIds);
+
+        return [
+            'main_picture' => $mainPicture,
+            'pictures' => $restPictures
+        ];
     }
 
 }

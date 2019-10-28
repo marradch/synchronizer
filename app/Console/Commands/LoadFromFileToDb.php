@@ -2,8 +2,9 @@
 
 namespace App\Console\Commands;
 
+use Exception;
 use Illuminate\Console\Command;
-use App\Services\VKSynchronizerService;
+use App\Services\FileDBSynchronizerService;
 use Illuminate\Support\Facades\Log;
 
 class LoadFromFileToDb extends Command
@@ -40,8 +41,8 @@ class LoadFromFileToDb extends Command
     public function handle()
     {
         try {
-            (new VKSynchronizerService())->processFile();
-        } catch (\Exception $e) {
+            (new FileDBSynchronizerService())->processFile();
+        } catch (Exception $e) {
             Log::critical("Exception while importing file: {$e->getMessage()}");
             return 1;
         }
