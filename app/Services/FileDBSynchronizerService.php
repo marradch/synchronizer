@@ -24,8 +24,8 @@ class FileDBSynchronizerService
     {
         $fileName = $this->downloadAndExtract();
         $this->initiateDOM($fileName);
-        //$this->processCategoriesNodes();
-        //$this->processOffersNodes();
+        $this->processCategoriesNodes();
+        $this->processOffersNodes();
     }
 
     private function downloadAndExtract()
