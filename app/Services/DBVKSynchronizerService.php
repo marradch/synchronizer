@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Traits\RetryTrait;
 use Exception;
 use Throwable;
 use VK\Client\VKApiClient;
@@ -15,6 +16,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class DBVKSynchronizerService
 {
+    use RetryTrait;
+
     private $group;
     private $token;
     private $VKApiClient;
@@ -31,71 +34,8 @@ class DBVKSynchronizerService
             return;
         }
 
-        //$this->loadAddedPhotosToVK();
         $this->loadAddedCategoryToVK();
         $this->loadAddedOffersToVK();
-    }
-
-    private function loadAddedPhotosToVK()
-    {
-        try {
-            $result = $this->VKApiClient->photos()->getMarketUploadServer($this->token, [
-                'group_id' => $this->group,
-                'main_photo' => 1
-            ]);
-            sleep(1);
-        } catch (Exception $e) {
-            Log::critical('getMarketUploadServer: ' . $e->getMessage());
-        }
-
-        $uploadUrl = $result['upload_url'];
-
-        foreach ($this->getAvailablePicturesToUpload() as $picture) {
-            try {
-                $resultArray = $this->VKApiClient->getRequest()->upload($uploadUrl, 'photo', $picture->local_path);
-                sleep(1);
-            } catch (Throwable $e) {
-                Log::critical("Picture {$picture->url}($picture->id) wasn't uploaded: {$e->getMessage()}, upload default one");
-            }
-            if (!isset($resultArray)) {
-                try {
-                    $resultArray = $this->VKApiClient->getRequest()->upload($uploadUrl, 'photo', $picture->default);
-                    sleep(1);
-                } catch (Throwable $e) {
-                    Log::critical("Default picture {$picture->url}($picture->id) wasn't uploaded: {$e->getMessage()}, skip");
-                    continue;
-                }
-            }
-
-            try {
-                $resultArray['group_id'] = $this->group;
-                $result = $this->VKApiClient->photos()->saveMarketPhoto($this->token, $resultArray);
-                sleep(1);
-                $picture->markAsSynchronized($result[0]['id']);
-                $picture->save();
-            } catch (Exception $e) {
-                Log::critical('load picture for offer ' . $picture->offer->shop_id . ': ' . $e->getMessage());
-            }
-        }
-    }
-
-    private function getAvailablePicturesToUpload()
-    {
-        $categorySettingsFilter = $this->getCategoriesSettingsFilter();
-
-        $pictures = Picture::whereHas('offer', function (Builder $query) use ($categorySettingsFilter) {
-            $query->whereHas('category', function (Builder $query) use ($categorySettingsFilter) {
-                $query->whereIn('can_load_to_vk', $categorySettingsFilter);
-            });
-        })
-            ->where('synchronized', false)
-            ->where('status', 'added');
-
-        foreach ($pictures->cursor() as $picture) {
-            yield $picture;
-        }
-
-        return $pictures;
     }
 
     private function loadAddedCategoryToVK()
@@ -120,11 +60,14 @@ class DBVKSynchronizerService
                     $paramsArray['photo_id'] = $pictureItem->vk_id;
                 }
 
-                $response = $this->VKApiClient->market()->addAlbum($this->token, $paramsArray);
+                $token = $this->token;
+
+                $response = $this->retry( function () use ($token, $paramsArray) {
+                    return $this->VKApiClient->market()->addAlbum($token, $paramsArray);
+                });
 
                 $category->markAsSynchronized($response['market_album_id']);
 
-                sleep(1);
             } catch (Exception $e) {
                 $category->vk_loading_error .= PHP_EOL.$e->getMessage();
                 Log::critical('load category ' . $category->shop_id . ': ' . $e->getMessage());
@@ -135,12 +78,16 @@ class DBVKSynchronizerService
     }
 
     private function loadPictureToVK($picture){
+        $token = $this->token;
+
         try {
-            $result = $this->VKApiClient->photos()->getMarketUploadServer($this->token, [
+            $paramsArray = [
                 'group_id' => $this->group,
                 'main_photo' => 1
-            ]);
-            sleep(1);
+            ];
+            $result = $this->retry( function () use ($token, $paramsArray) {
+                return $this->VKApiClient->photos()->getMarketUploadServer($token, $paramsArray);
+            });
         } catch (Exception $e) {
             $picture->vk_loading_error = $e->getMessage();
             $picture->save();
@@ -152,16 +99,22 @@ class DBVKSynchronizerService
         $uploadUrl = $result['upload_url'];
 
         try {
-            $resultArray = $this->VKApiClient->getRequest()->upload($uploadUrl, 'photo', $picture->local_path);
-            sleep(1);
+            $local_path = $picture->local_path;
+
+            $resultArray = $this->retry( function () use ($uploadUrl, $local_path) {
+                return $this->VKApiClient->getRequest()->upload($uploadUrl, 'photo', $local_path);
+            });
         } catch (Throwable $e) {
             $picture->vk_loading_error = "Picture {$picture->url}($picture->id) wasn't uploaded, upload default one";
             Log::critical("Picture {$picture->url}($picture->id) wasn't uploaded, upload default one");
         }
         if (!isset($resultArray)) {
             try {
-                $resultArray = $this->VKApiClient->getRequest()->upload($uploadUrl, 'photo', $picture->default);
-                sleep(1);
+                $default = $picture->default;
+
+                $resultArray = $this->retry( function () use ($uploadUrl, $default) {
+                    return $this->VKApiClient->getRequest()->upload($uploadUrl, 'photo', $default);
+                });
             } catch (Throwable $e) {
                 $picture->vk_loading_error = "Default picture {$picture->default}($picture->id) wasn't uploaded, skip";
                 $picture->save();
@@ -173,8 +126,11 @@ class DBVKSynchronizerService
 
         try {
             $resultArray['group_id'] = $this->group;
-            $result = $this->VKApiClient->photos()->saveMarketPhoto($this->token, $resultArray);
-            sleep(1);
+
+            $result = $this->retry( function () use ($token, $resultArray) {
+                return $this->VKApiClient->photos()->saveMarketPhoto($token, $resultArray);
+            });
+
             $picture->markAsSynchronized($result[0]['id']);
             $picture->save();
 
@@ -204,6 +160,8 @@ class DBVKSynchronizerService
 
     private function loadAddedOffersToVK()
     {
+        $token = $this->token;
+
         foreach ($this->getAvailableOffersToUpload() as $offer) {
             $this->loadOfferPictures($offer);
             $picturesIds = $offer->prepareOfferPicturesVKIds();
@@ -219,8 +177,10 @@ class DBVKSynchronizerService
             ];
 
             try {
-                $response = $this->VKApiClient->market()->add($this->token, $paramsArray);
-                sleep(1);
+                $response = $this->retry( function () use ($token, $paramsArray) {
+                    return $this->VKApiClient->market()->add($token, $paramsArray);
+                });
+
                 $offer->markAsSynchronized($response['market_item_id']);
             } catch (Exception $e) {
                 Log::critical('load offer ' . $offer->shop_id . ':' . $e->getMessage());
@@ -236,7 +196,9 @@ class DBVKSynchronizerService
             ];
 
             try {
-                $this->VKApiClient->market()->addToAlbum($this->token, $paramsArray);
+                $this->retry( function () use ($token, $paramsArray) {
+                    return $this->VKApiClient->market()->addToAlbum($token, $paramsArray);
+                });
             } catch (Exception $e) {
                 Log::critical('add to album for offer ' . $offer->shop_id . ':' . $e->getMessage());
             }

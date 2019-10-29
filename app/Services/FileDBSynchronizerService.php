@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Traits\RetryTrait;
 use DOMDocument;
 use DOMNode;
 use DOMNodeList;
@@ -9,9 +10,13 @@ use Exception;
 use App\Category;
 use App\Offer;
 use App\Picture;
+use Exeption;
+use Illuminate\Support\Facades\Log;
 
 class FileDBSynchronizerService
 {
+    use RetryTrait;
+
     /** @var DOMDocument $dom */
     private $dom;
 
@@ -257,9 +262,14 @@ class FileDBSynchronizerService
         }
 
         $path = $uploadPath . basename($url);
-        $this->retry(function () use ($url, $path) {
-            $this->internalDownloadFile($url, $path);
-        });
+
+        try {
+            $this->retry(function () use ($url, $path) {
+                $this->internalDownloadFile($url, $path);
+            });
+        } catch (Exeption $e) {
+            Log::critical("File upload error ({$url}): " . $e->getMessage());
+        }
     }
 
     /**
