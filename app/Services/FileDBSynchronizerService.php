@@ -22,21 +22,56 @@ class FileDBSynchronizerService
 
     public function processFile()
     {
-        $this->initiateDOM();
-        $this->processCategoriesNodes();
-        $this->processOffersNodes();
+        $fileName = $this->downloadAndExtract();
+        $this->initiateDOM($fileName);
+        //$this->processCategoriesNodes();
+        //$this->processOffersNodes();
     }
 
-    private function initiateDOM()
+    private function downloadAndExtract()
     {
-        $filePath = env('SHOP_IMPORT_FILE_URL', null);
-        if (!$filePath) {
+        $url = env('SHOP_IMPORT_FILE_URL', null);
+        if (!$url) {
             throw new Exception('Please setup SHOP_IMPORT_FILE_URL to env');
+        }
+
+        $this->downloadFile($url);
+        $fileName = basename($url);
+        $this->extractFile($fileName);
+
+        return str_replace('.gz', '', $fileName);
+    }
+
+    private function extractFile($file_base_name)
+    {
+        $file_name = public_path().'/downloads/'.basename($file_base_name);
+
+        $buffer_size = 4096; // read 4kb at a time
+        $out_file_name = str_replace('.gz', '', $file_name);
+
+        $file = gzopen($file_name, 'rb');
+        $out_file = fopen($out_file_name, 'wb');
+
+        while (!gzeof($file)) {
+            fwrite($out_file, gzread($file, $buffer_size));
+        }
+
+        fclose($out_file);
+        gzclose($file);
+    }
+
+    private function initiateDOM($fileName)
+    {
+        $filePath = public_path().'/downloads/'.$fileName;
+        if (!file_exists($filePath)) {
+            throw new Exception("Can\'t find extracted file $filePath");
         }
         $dom = new DOMDocument();
         $dom->preserveWhiteSpace = false;
-        $dom->load($filePath);
-        $this->dom = $dom;
+        $result = $dom->load($filePath);
+        if (!$result) {
+            throw new Exception("Can\'t load $filePath in DOM");
+        }
     }
 
     public function processCategoriesNodes()
@@ -255,7 +290,7 @@ class FileDBSynchronizerService
                 $this->internalDownloadFile($url, $path);
             });
         } catch (Exeption $e) {
-            Log::critical("Photo file upload error ({$url}): " . $e->getMessage());
+            Log::critical("File upload error ({$url}): " . $e->getMessage());
         }
     }
 
