@@ -20,6 +20,10 @@
         "vue-template-compiler": "^2.6.10"
     },
     "dependencies": {
-        "bootstrap": "^4.3.1"        
+        "@vuikit/icons": "^0.8.1",
+        "@vuikit/theme": "^0.8.1",
+        "bootstrap": "^4.3.1",
+        "vue": "^2.6.10",
+        "vuikit": "^0.8.10"
     }
 }

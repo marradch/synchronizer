@@ -12,12 +12,12 @@
     </button>
     <div class="collapse navbar-collapse" id="navbarText">
         <ul class="navbar-nav mr-auto">
-
+            <li><a class="nav-link logout-link" href="{{route('categories')}}">Категории из файла</a></li>
         </ul>
         <span class="navbar-text">
           {{app('request')->attributes->get('authData')['full_name']}}
         </span>
-        <a class="nav-link logout-link" href="{{route('vk.logout')}}">Logout</a>
+        <a class="nav-link logout-link" href="{{route('vk.logout')}}">Выйти</a>
     </div>
 </nav>
 
