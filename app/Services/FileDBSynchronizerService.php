@@ -284,6 +284,9 @@ class FileDBSynchronizerService
         }
 
         $path = $uploadPath . basename($url);
+        if (file_exists($path)) {
+            return;
+        }
 
         try {
             $this->retry(function () use ($url, $path) {
