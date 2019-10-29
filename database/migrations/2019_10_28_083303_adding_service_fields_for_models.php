@@ -19,7 +19,7 @@ class AddingServiceFieldsForModels extends Migration
 
         Schema::table('pictures', function (Blueprint $table) {
             $table->boolean('delete_sign')->default(0)->after('url');
-            $table->text('vk_loading_error')->after('vk_id');
+            $table->text('vk_loading_error')->after('vk_id')->nullable();
             $table->dateTime('status_date')->default('0001-01-01 00:00:00');
         });
 
@@ -29,7 +29,7 @@ class AddingServiceFieldsForModels extends Migration
 
         Schema::table('categories', function (Blueprint $table) {
             $table->boolean('delete_sign')->default(0)->after('check_sum');
-            $table->text('vk_loading_error')->after('vk_id');
+            $table->text('vk_loading_error')->after('vk_id')->nullable();
             $table->dateTime('status_date')->default('0001-01-01 00:00:00');
         });
 
@@ -39,7 +39,7 @@ class AddingServiceFieldsForModels extends Migration
 
         Schema::table('offers', function (Blueprint $table) {
             $table->boolean('delete_sign')->default(0)->after('check_sum');
-            $table->text('vk_loading_error')->after('vk_id');
+            $table->text('vk_loading_error')->after('vk_id')->nullable();
             $table->dateTime('status_date')->default('0001-01-01 00:00:00');
         });
     }
