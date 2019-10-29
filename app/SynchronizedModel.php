@@ -16,9 +16,11 @@ abstract class SynchronizedModel extends Model
         'vk_id',
     ];
 
-    public function markAsSynchronized($vk_id)
+    public function markAsSynchronized($vk_id = false)
     {
-        $this->vk_id = $vk_id;
+        if($vk_id) {
+            $this->vk_id = $vk_id;
+        }
         $this->synchronized = true;
         $this->synchronize_date = date('Y-m-d H:i:s');
     }

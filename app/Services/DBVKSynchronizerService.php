@@ -36,11 +36,19 @@ class DBVKSynchronizerService
 
         $this->loadAddedCategoryToVK();
         $this->loadAddedOffersToVK();
+
+        $this->processEditedCategories();
+        $this->processEditedOffers();
+
+        $this->processDeletedCategories();
+        $this->processDeletedOffers();
     }
 
     private function loadAddedCategoryToVK()
     {
-        foreach ($this->getAvailableCategoriesToUpload() as $category) {
+        $token = $this->token;
+
+        foreach ($this->getAvailableCategoriesForSynchronize('added') as $category) {
             try {
 
                 $paramsArray = [
@@ -51,16 +59,29 @@ class DBVKSynchronizerService
 
                 if(!$pictureItem->vk_id){
                     $pictureItem->vk_id = $this->loadPictureToVK($pictureItem);
-                }
 
-                if (!$pictureItem->vk_id) {
-                    $category->vk_loading_error = "Category {$category->name}($category->id) hasn't the picture";
-                    Log::warning("Category {$category->name}($category->id) hasn't the picture");
+                    if (!$pictureItem->vk_id) {
+                        $category->vk_loading_error = "Category {$category->name}($category->id) hasn't the picture";
+                        Log::warning("Category {$category->name}($category->id) hasn't the picture");
+                    } else {
+                        $paramsArray['photo_id'] = $pictureItem->vk_id;
+                    }
                 } else {
-                    $paramsArray['photo_id'] = $pictureItem->vk_id;
+                    $pictureInAnotherCategory = Category::where('picture_vk_id', $pictureItem->vk_id)->count();
+                    if($pictureInAnotherCategory) {
+                        $vk_id = $this->loadPictureToVK($pictureItem, true);
+                        if (!$vk_id) {
+                            $category->vk_loading_error = "Category {$category->name}($category->id) hasn't the picture";
+                            Log::warning("Category {$category->name}($category->id) hasn't the picture");
+                        } else {
+                            $paramsArray['photo_id'] = $vk_id;
+                        }
+                    }
                 }
 
-                $token = $this->token;
+                if(isset($paramsArray['photo_id']) && $paramsArray['photo_id']) {
+                    $category->picture_vk_id = $paramsArray['photo_id'];
+                }
 
                 $response = $this->retry( function () use ($token, $paramsArray) {
                     return $this->VKApiClient->market()->addAlbum($token, $paramsArray);
@@ -77,7 +98,7 @@ class DBVKSynchronizerService
         }
     }
 
-    private function loadPictureToVK($picture){
+    private function loadPictureToVK($picture, $duplicate = false){
         $token = $this->token;
 
         try {
@@ -131,10 +152,14 @@ class DBVKSynchronizerService
                 return $this->VKApiClient->photos()->saveMarketPhoto($token, $resultArray);
             });
 
-            $picture->markAsSynchronized($result[0]['id']);
-            $picture->save();
+            if(!$duplicate) {
+                $picture->markAsSynchronized($result[0]['id']);
+                $picture->save();
 
-            return $picture->vk_id;
+                return $picture->vk_id;
+            } else {
+                return $result[0]['id'];
+            }
         } catch (Exception $e) {
             $picture->vk_loading_error = $picture->vk_loading_error.PHP_EOL.$e->getMessage();
             $picture->save();
@@ -144,14 +169,17 @@ class DBVKSynchronizerService
         }
     }
 
-    private function getAvailableCategoriesToUpload()
+    private function getAvailableCategoriesForSynchronize($status)
     {
         $categorySettingsFilter = $this->getCategoriesSettingsFilter();
 
         $categories = Category::whereIn('can_load_to_vk', $categorySettingsFilter)
             ->where('synchronized', false)
-            ->where('status', 'added')
-            ->has('offers');
+            ->where('status', $status);
+
+        if($status == 'added') {
+            $categories->has('offers');
+        }
 
         foreach ($categories->cursor() as $category) {
             yield $category;
@@ -162,7 +190,7 @@ class DBVKSynchronizerService
     {
         $token = $this->token;
 
-        foreach ($this->getAvailableOffersToUpload() as $offer) {
+        foreach ($this->getAvailableOffersForSynchronize('added') as $offer) {
             $this->loadOfferPictures($offer);
             $picturesIds = $offer->prepareOfferPicturesVKIds();
 
@@ -217,7 +245,7 @@ class DBVKSynchronizerService
         }
     }
 
-    private function getAvailableOffersToUpload()
+    private function getAvailableOffersForSynchronize($status)
     {
         $categorySettingsFilter = $this->getCategoriesSettingsFilter();
 
@@ -225,7 +253,7 @@ class DBVKSynchronizerService
             $query->whereIn('can_load_to_vk', $categorySettingsFilter);
         })
         ->where('synchronized', false)
-        ->where('status', 'added');
+        ->where('status', $status);
 
         foreach ($offers->cursor() as $offer) {
             yield $offer;
@@ -279,5 +307,213 @@ class DBVKSynchronizerService
             return true;
         }
         return false;
+    }
+
+    // functions for update
+
+    private function processEditedCategories()
+    {
+        $token = $this->token;
+
+        foreach ($this->getAvailableCategoriesForSynchronize('edited') as $category) {
+            try {
+                $paramsArray = [
+                    'owner_id' => '-' . $this->group,
+                    'album_id' => $category->vk_id,
+                    'title' => $category->prepared_name
+                ];
+
+                $response = $this->retry( function () use ($token, $paramsArray) {
+                    return $this->VKApiClient->market()->editAlbum($token, $paramsArray);
+                });
+
+                if($response) {
+                    $category->markAsSynchronized();
+                } else {
+                    $errorText = 'edit category ' . $category->shop_id . ': something went wrong';
+                    $category->vk_loading_error .= PHP_EOL.$errorText;
+                    Log::critical($errorText);
+                }
+            } catch (Exception $e) {
+                $category->vk_loading_error .= PHP_EOL.$e->getMessage();
+                Log::critical('edit category ' . $category->shop_id . ': ' . $e->getMessage());
+            }
+
+            $category->save();
+        }
+    }
+
+    private function processEditedOffers()
+    {
+        $token = $this->token;
+
+        foreach ($this->getAvailableOffersForSynchronize('edited') as $offer) {
+            $this->loadOfferPictures($offer);
+            $picturesIds = $offer->prepareOfferPicturesVKIds();
+
+            $paramsArray = [
+                'owner_id' => '-' . $this->group,
+                'item_id' => $offer->vk_id,
+                'name' => $offer->name,
+                'description' => $offer->description,
+                'category_id' => 1,
+                'price' => $offer->price . '.00',
+                'main_photo_id' => $picturesIds['main_picture'],
+                'photo_ids' => $picturesIds['pictures']
+            ];
+
+            try {
+                $response = $this->retry( function () use ($token, $paramsArray) {
+                    return $this->VKApiClient->market()->edit($token, $paramsArray);
+                });
+
+                $offer->markAsSynchronized($response['market_item_id']);
+            } catch (Exception $e) {
+                Log::critical('load offer ' . $offer->shop_id . ':' . $e->getMessage());
+                $offer->vk_loading_error = $e->getMessage();
+            }
+
+            $offer->save();
+
+            if($offer->shop_category_id == $offer->shop_old_category_id) {
+                continue;
+            }
+
+            $paramsArray = [
+                'owner_id' => '-' . $this->group,
+                'item_id' => $offer->vk_id,
+            ];
+
+            $paramsArray['album_ids'] = $offer->oldcategory->vk_id;
+
+            try {
+                $this->retry( function () use ($token, $paramsArray) {
+                    return $this->VKApiClient->market()->removeFromAlbum($token, $paramsArray);
+                });
+            } catch (Exception $e) {
+                Log::critical('remove to album for offer ' . $offer->shop_id . ':' . $e->getMessage());
+            }
+
+            $paramsArray['album_ids'] = $offer->category->vk_id;
+
+            try {
+                $this->retry( function () use ($token, $paramsArray) {
+                    return $this->VKApiClient->market()->addToAlbum($token, $paramsArray);
+                });
+            } catch (Exception $e) {
+                Log::critical('add to album for offer ' . $offer->shop_id . ':' . $e->getMessage());
+            }
+        }
+    }
+
+    private function deletePhotos()
+    {
+        $token = $this->token;
+
+        foreach ($this->getPhotosForDelete() as $photo) {
+            $paramsArray = [
+                'owner_id' => '-'.$this->group,
+                'photo_id' => $photo->vk_id
+            ];
+
+            try {
+                $response = $this->retry( function () use ($token, $paramsArray) {
+                    return $this->VKApiClient->photos()->delete($token, $paramsArray);
+                });
+
+                if(!$response) continue;
+
+                $photo->markAsSynchronized();
+            } catch (Exception $e) {
+                Log::critical('delete photo ' . $photo->id . ':' . $e->getMessage());
+                $photo->vk_loading_error = 'delete photo ' . $photo->id . ':' . $e->getMessage();
+            }
+        }
+    }
+
+    private function getPhotosForDelete()
+    {
+        $categorySettingsFilter = $this->getCategoriesSettingsFilter();
+
+        $pictures = Picture::whereHas('offer', function (Builder $query) use ($categorySettingsFilter) {
+            $query->whereHas('category', function (Builder $query) use ($categorySettingsFilter) {
+                $query->whereIn('can_load_to_vk', $categorySettingsFilter);
+            });
+        })
+
+        ->where('synchronized', false)
+        ->where('status', 'deleted')
+        ->whereNotIn('vk_id', function ($query) {
+            $query->select('picture_vk_id')->from(with(new Category)->getTable())
+                ->where('picture_vk_id', '<>', 0);
+        });
+
+        foreach ($pictures->cursor() as $picture) {
+            yield $picture;
+        }
+    }
+
+    private function processDeletedCategories()
+    {
+        $token = $this->token;
+
+        foreach ($this->getAvailableCategoriesForSynchronize('deleted') as $category) {
+            if(!$category->vk_id) continue;
+            try {
+                $paramsArray = [
+                    'owner_id' => '-' . $this->group,
+                    'album_id' => $category->vk_id,
+                ];
+
+                $response = $this->retry( function () use ($token, $paramsArray) {
+                    return $this->VKApiClient->market()->deleteAlbum($token, $paramsArray);
+                });
+
+                if($response) {
+                    $category->markAsSynchronized();
+                } else {
+                    $errorText = 'delete category ' . $category->shop_id . ': something went wrong';
+                    $category->vk_loading_error .= PHP_EOL.$errorText;
+                    Log::critical($errorText);
+                }
+            } catch (Exception $e) {
+                $category->vk_loading_error .= PHP_EOL.$e->getMessage();
+                Log::critical('delete category ' . $category->shop_id . ': ' . $e->getMessage());
+            }
+
+            $category->save();
+        }
+    }
+
+    private function processDeletedOffers()
+    {
+        $token = $this->token;
+
+        foreach ($this->getAvailableOffersForSynchronize('deleted') as $offer) {
+            if(!$offer->vk_id) continue;
+            try {
+                $paramsArray = [
+                    'owner_id' => '-' . $this->group,
+                    'item_id' => $offer->vk_id,
+                ];
+
+                $response = $this->retry( function () use ($token, $paramsArray) {
+                    return $this->VKApiClient->market()->delete($token, $paramsArray);
+                });
+
+                if($response) {
+                    $offer->markAsSynchronized();
+                } else {
+                    $errorText = 'delete offer ' . $offer->shop_id . ': something went wrong';
+                    $offer->vk_loading_error .= PHP_EOL.$errorText;
+                    Log::critical($errorText);
+                }
+            } catch (Exception $e) {
+                $offer->vk_loading_error .= PHP_EOL.$e->getMessage();
+                Log::critical('delete offer ' . $offer->shop_id . ': ' . $e->getMessage());
+            }
+
+            $offer->save();
+        }
     }
 }

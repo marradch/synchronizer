@@ -28,6 +28,11 @@ class Offer extends SynchronizedModel
         return $this->belongsTo('App\Category', 'shop_category_id', 'shop_id');
     }
 
+    public function oldcategory()
+    {
+        return $this->belongsTo('App\Category', 'shop_old_category_id', 'shop_id');
+    }
+
     public function pictures()
     {
         return $this->hasMany('App\Picture', 'offer_id', 'id');

@@ -156,6 +156,7 @@ class FileDBSynchronizerService
     private function fillOfferFromNode($offer, $offerNode)
     {
         $offer->shop_id = $offerNode->getAttribute('id');
+        $offer->shop_old_category_id = $offer->shop_category_id ? $offer->shop_category_id : 0;
         $offer->shop_category_id = $offerNode->getElementsByTagName('categoryId')[0]->nodeValue;
         $offer->name = $offerNode->getElementsByTagName('name')[0]->nodeValue;
         $offer->price = $offerNode->getElementsByTagName('price')[0]->nodeValue;
@@ -239,20 +240,6 @@ class FileDBSynchronizerService
         $this->downloadFile($pictureNode->nodeValue);
     }
 
-    function retry($f, $delay = 10, $retries = 3)
-    {
-        try {
-            return $f();
-        } catch (Exception $e) {
-            if ($retries > 0) {
-                sleep($delay);
-                return $this->retry($f, $delay, $retries - 1);
-            } else {
-                throw $e;
-            }
-        }
-    }
-
     private function downloadFile($url)
     {
         $uploadPath = public_path() . '/downloads/';
@@ -268,7 +255,7 @@ class FileDBSynchronizerService
                 $this->internalDownloadFile($url, $path);
             });
         } catch (Exeption $e) {
-            Log::critical("File upload error ({$url}): " . $e->getMessage());
+            Log::critical("Photo file upload error ({$url}): " . $e->getMessage());
         }
     }
 

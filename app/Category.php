@@ -19,6 +19,7 @@ class Category extends SynchronizedModel
         'vk_id',
         'vk_loading_error',
         'can_load_to_vk',
+        'picture_vk_id',
     ];
 
     protected $table = 'categories';

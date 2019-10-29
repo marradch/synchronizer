@@ -38,6 +38,13 @@ class LoadOffersToVk extends Command
      */
     public function handle()
     {
-        (new DBVKSynchronizerService())->loadAllToVK();
+        try {
+            (new DBVKSynchronizerService())->loadAllToVK();
+        } catch (Exception $e) {
+            Log::critical("Exception while importing file: {$e->getMessage()}");
+            return 1;
+        }
+
+        return 0;
     }
 }
