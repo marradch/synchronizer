@@ -126,8 +126,8 @@ class DBVKSynchronizerService
                 return $this->VKApiClient->getRequest()->upload($uploadUrl, 'photo', $local_path);
             });
         } catch (Throwable $e) {
-            $picture->vk_loading_error = "Picture {$picture->url}($picture->id) wasn't uploaded, upload default one";
-            Log::critical("Picture {$picture->url}($picture->id) wasn't uploaded, upload default one");
+            $picture->vk_loading_error = "Picture {$picture->url}($picture->id) wasn't uploaded, upload default one: {$e->getMessage()}";
+            Log::critical("Picture {$picture->url}($picture->id) wasn't uploaded, upload default one: {$e->getMessage()}");
         }
         if (!isset($resultArray)) {
             try {
