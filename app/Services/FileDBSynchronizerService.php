@@ -79,7 +79,9 @@ class FileDBSynchronizerService
 
         Category::where('status', '<>', 'deleted')
             ->update(['delete_sign' => true]);
+        $counter = 0;
         foreach ($categories AS $categoryNode) {
+            $counter++;
             $shop_id = $categoryNode->getAttribute('id');
 
             $category = Category::where('shop_id', $shop_id)->first();
@@ -89,6 +91,8 @@ class FileDBSynchronizerService
             } else {
                 $this->addCategory($categoryNode);
             }
+
+            echo "Processed {$counter} category\n";
         }
 
         $deletedCategories = Category::where('status', '<>', 'deleted')
@@ -108,8 +112,10 @@ class FileDBSynchronizerService
         $offers = $this->dom->getElementsByTagName('offer');
         Offer::where('status', '<>', 'deleted')
             ->update(['delete_sign' => true]);
+        $counter = 0;
         /** @var DOMNode $offerNode */
         foreach ($offers as $offerNode) {
+            $counter++;
             $shop_id = $offerNode->getAttribute('id');
 
             $offer = Offer::where('shop_id', $shop_id)->first();
@@ -119,6 +125,7 @@ class FileDBSynchronizerService
             } else {
                 $this->addOffer($offerNode);
             }
+            echo "Processed {$counter} offer\n";
         }
 
         $deletedOffers = Offer::where('delete_sign', true)->get();
