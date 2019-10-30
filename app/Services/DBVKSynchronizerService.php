@@ -483,6 +483,10 @@ class DBVKSynchronizerService
 
             $category->save();
         }
+
+        Category::where('status', 'deleted')
+            ->where('synchronized', true)
+            ->update(['can_load_to_vk' => 'no']);
     }
 
     private function processDeletedOffers()

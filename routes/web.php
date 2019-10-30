@@ -19,14 +19,14 @@ Route::group(['middleware' => ['vk.token.verify']], function () {
     Route::get('/choose-group', 'VKAuthController@chooseGroup')->name('auth.choose.group');
     Route::post('/set-group', 'VKAuthController@setGroup')->name('auth.set.group');
     Route::group(['middleware' => ['vk.group.verify']], function () {
+        Route::get('/dashboard', 'DashboardController@index')->name('dashboard');
 
+        Route::get('/categories', 'CategoryController@index')->name('categories');
+        Route::get('/get-categories-db', 'CategoryController@getCategories')->name('get-categories-db');
+
+        Route::get('/set-load-to-vk-yes/{ids}', 'CategoryController@setLoadToVKYes')->name('set-load-to-vk-yes');
+        Route::get('/set-load-to-vk-no/{ids}', 'CategoryController@setLoadToVKNo')->name('set-load-to-vk-no');
+
+        Route::get('/get-selected-count', 'CategoryController@getSelectedCount')->name('set-load-to-vk-no');
     });
 });
-
-Route::get('/dashboard', 'DashboardController@index')->name('dashboard');
-
-Route::get('/categories', 'CategoryController@index')->name('categories');
-Route::get('/get-categories-db', 'CategoryController@getCategories')->name('get-categories-db');
-
-Route::get('/set-load-to-vk-yes/{id}', 'CategoryController@setLoadToVKYes')->name('set-load-to-vk-yes');
-Route::get('/set-load-to-vk-no/{id}', 'CategoryController@setLoadToVKNo')->name('set-load-to-vk-no');

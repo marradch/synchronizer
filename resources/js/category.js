@@ -17,10 +17,15 @@ let vue = new Vue({
         selection: [],
         page: 1,
         per_page: 0,
-        total: 0
+        total: 0,
+        sleepSelectionWatcher: 1,
+        pageWasChanged: 0,
+        areRejectedCategories: 0,
+        selectedCount: 0,
     },
     mounted() {
         this.loadCategories();
+        this.getSelectedCount();
     },
     watch: {
         page: function () {
@@ -28,35 +33,57 @@ let vue = new Vue({
         },
         selection: function (newValue, oldValue) {
 
-            let removeRes = oldValue.filter((a)=> newValue.indexOf(a)== -1);
+            if(this.sleepSelectionWatcher) return;
+
+            if(this.pageWasChanged) {
+                this.pageWasChanged = 0;
+                return;
+            }
+
+            if(this.areRejectedCategories) {
+                this.areRejectedCategories = 0;
+                return;
+            }
+
             //console.log('to remove');
             //console.log(removeRes);
+            let removeRes = oldValue.filter((a)=> newValue.indexOf(a)== -1);
             if(removeRes.length > 0){
-                axios
-                    .get('/set-load-to-vk-no/'+removeRes[0])
-                    .then((response) => {
+                let removeStr = removeRes.join('-');
 
+                axios
+                    .get('/set-load-to-vk-no/'+removeStr)
+                    .then((response) => {
+                        this.getSelectedCount();
                     }).catch(error => {
-                    this.selection.push(removeRes[0]);
+                        for(var i in removeRes){
+                            this.selection.push(removeRes[i]);
+                        }
                         console.log(error);
                     });
             }
 
-            let addRes = newValue.filter((a)=> oldValue.indexOf(a)== -1);
-            if(addRes.length > 0){
-                axios
-                    .get('/set-load-to-vk-yes/'+addRes[0])
-                    .then((response) => {
-
-                    }).catch(error => {
-                    this.selection.filter(function(value, index, arr){
-                        return value != addRes[0];
-                    });
-                    console.log(error);
-                });
-            }
             //console.log('to add');
             //console.log(addRes);
+            let addRes = newValue.filter((a)=> oldValue.indexOf(a)== -1);
+            if(addRes.length > 0){
+                let addStr = addRes.join('-');
+                axios
+                    .get('/set-load-to-vk-yes/'+addStr)
+                    .then((response) => {
+                        if(response.data.length > 0){
+                            let responseIds = response.data.map(function (x) {
+                                return parseInt(x, 10);
+                            });
+                            this.selection = this.selection.filter((a)=> responseIds.indexOf(a) == -1);
+                            this.areRejectedCategories = 1;
+                        }
+                        this.getSelectedCount();
+                    }).catch(error => {
+                        this.selection = this.selection.filter((a)=> addRes.indexOf(a)== -1);
+                        console.log(error);
+                    });
+            }
         }
     },
     methods: {
@@ -73,6 +100,10 @@ let vue = new Vue({
                     this.data = responseData.data;
                     this.per_page = responseData.per_page;
                     this.total = responseData.total;
+
+                    this.sleepSelectionWatcher = 1;
+
+                    this.selection = [];
                     for(let i in this.data) {
                         if(this.data[i].can_load_to_vk == 'yes') {
                             if(this.selection.indexOf(this.data[i].id) < 0)
@@ -81,8 +112,25 @@ let vue = new Vue({
                             }
                         }
                     }
+
+                    this.sleepSelectionWatcher = 0;
+                    this.pageWasChanged = 1;
+
                 }).catch(error => console.log(error));
+        },
+        getSelectedCount: function () {
+            axios
+                .get('/get-selected-count')
+                .then((response) => {
+                    this.selectedCount = parseInt(response.data.count);
+                    console.log(this.selectedCount);
+                }).catch(error => console.log(error));
+        },
+    },
+    computed: {
+        alertClass: function () {
+            return (this.selectedCount >= 100) ? 'alert-danger' : 'alert-primary';
         }
-    }
+    },
 });
 
