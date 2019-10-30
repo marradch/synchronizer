@@ -22,9 +22,11 @@ class FileDBSynchronizerService
     public function processFile()
     {
         $fileName = $this->downloadAndExtract();
+        echo "Start import file {$fileName}\n";
         $this->initiateDOM($fileName);
         $this->processCategoriesNodes();
         $this->processOffersNodes();
+        echo "End import file {$fileName}\n";
     }
 
     private function downloadAndExtract()
@@ -33,9 +35,10 @@ class FileDBSynchronizerService
         if (!$url) {
             throw new Exception('Please setup SHOP_IMPORT_FILE_URL to env');
         }
-
+        echo "Start download file from {$url}\n";
         $this->downloadFile($url);
         $fileName = basename($url);
+        echo "Start extract file from {$url}\n";
         $this->extractFile($fileName);
 
         return str_replace('.gz', '', $fileName);
