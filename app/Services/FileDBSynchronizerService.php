@@ -66,9 +66,9 @@ class FileDBSynchronizerService
         if (!file_exists($filePath)) {
             throw new Exception("Can\'t find extracted file $filePath");
         }
-        $dom = new DOMDocument();
-        $dom->preserveWhiteSpace = false;
-        $result = $dom->load($filePath);
+        $this->dom = new DOMDocument();
+        $this->dom->preserveWhiteSpace = false;
+        $result = $this->dom->load($filePath);
         if (!$result) {
             throw new Exception("Can\'t load $filePath in DOM");
         }
@@ -284,6 +284,9 @@ class FileDBSynchronizerService
         }
 
         $path = $uploadPath . basename($url);
+        if (file_exists($path)) {
+            return;
+        }
 
         try {
             $this->retry(function () use ($url, $path) {
