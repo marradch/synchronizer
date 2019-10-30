@@ -130,7 +130,10 @@ let vue = new Vue({
     computed: {
         alertClass: function () {
             return (this.selectedCount >= 100) ? 'alert-danger' : 'alert-primary';
-        }
+        },
+        displayStopHint: function () {
+            return (this.selectedCount >= 100) ? true : false;
+        },
     },
 });
 

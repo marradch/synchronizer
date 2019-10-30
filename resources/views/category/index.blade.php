@@ -6,7 +6,7 @@
     <h1>Категории из файла</h1>
     <div id="category-selection-app">
         <div :class="['alert', alertClass]" role="alert">
-            Всего категорий к выгрузке @{{selectedCount}}.
+            Всего категорий к выгрузке @{{selectedCount}}. <span :class="displayStopHint ? '' : 'd-none'">Запрещено устанавливать к выгрузке больше 100 фотографий!</span>
         </div>
         <vk-table :data="data" :selected-rows.sync="selection">
             <vk-table-column-select cell="synchronized"></vk-table-column-select>
