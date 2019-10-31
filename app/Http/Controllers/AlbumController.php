@@ -10,6 +10,7 @@ use App\Settings;
 use Illuminate\Support\Facades\Log;
 use App\Task;
 use App\Jobs\AlbumsDeletion;
+use App\Jobs\ClearAllAlbums;
 
 class AlbumController extends Controller
 {
@@ -86,5 +87,10 @@ class AlbumController extends Controller
             dispatch(new AlbumsDeletion($task->id));
             return response()->json(['created'=>'yes']);
         }
+    }
+
+    public function setDeleteAllJob()
+    {
+        dispatch(new ClearAllAlbums());
     }
 }

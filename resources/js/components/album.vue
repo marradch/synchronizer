@@ -18,7 +18,7 @@
         </vk-pagination>
     </div>
     <p v-vk-margin>
-        <vk-button>Удалить все товары<br>без удаления подборок</vk-button>
+        <vk-button @click="clearAllAlbums">Удалить все товары<br>без удаления подборок</vk-button>
         <vk-button @click="removeSoft">Удалить товары в выбранных<br>подборках без удаления подборок</vk-button>
         <vk-button @click="removeHard">Удалить товары в выбранных<br>подборках с удалением подборок</vk-button>
     </p>
@@ -81,11 +81,17 @@ export default {
                 .then((response) => {
                     if(response.data.created != undefined) {
                         this.messages.push('Ваша задача успешно отправленна в обработку!');
-                        this.loadAlbums();
                     } else {
                         this.messages.push('Задача не была создана. Проверьте правильность выбора!');
                     }
                     this.selection = [];
+                }).catch(error => console.log(error));
+        },
+        clearAllAlbums: function() {
+            axios
+                .get('/set-delete-all-job')
+                .then((response) => {
+                    this.messages.push('Ваша задача успешно отправленна в обработку!');
                 }).catch(error => console.log(error));
         },
     },
