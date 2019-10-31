@@ -10,7 +10,6 @@ use Exception;
 use App\Category;
 use App\Offer;
 use App\Picture;
-use Exeption;
 use Illuminate\Support\Facades\Log;
 
 class FileDBSynchronizerService
@@ -23,9 +22,11 @@ class FileDBSynchronizerService
     public function processFile()
     {
         $fileName = $this->downloadAndExtract();
+        echo "Start import file {$fileName}\n";
         $this->initiateDOM($fileName);
         $this->processCategoriesNodes();
         $this->processOffersNodes();
+        echo "End import file {$fileName}\n";
     }
 
     private function downloadAndExtract()
@@ -34,9 +35,10 @@ class FileDBSynchronizerService
         if (!$url) {
             throw new Exception('Please setup SHOP_IMPORT_FILE_URL to env');
         }
-
+        echo "Start download file from {$url}\n";
         $this->downloadFile($url);
         $fileName = basename($url);
+        echo "Start extract file from {$url}\n";
         $this->extractFile($fileName);
 
         return str_replace('.gz', '', $fileName);
@@ -80,7 +82,9 @@ class FileDBSynchronizerService
 
         Category::where('status', '<>', 'deleted')
             ->update(['delete_sign' => true]);
+        $counter = 0;
         foreach ($categories AS $categoryNode) {
+            $counter++;
             $shop_id = $categoryNode->getAttribute('id');
 
             $category = Category::where('shop_id', $shop_id)->first();
@@ -90,6 +94,8 @@ class FileDBSynchronizerService
             } else {
                 $this->addCategory($categoryNode);
             }
+
+            echo "Processed {$counter} category\n";
         }
 
         $deletedCategories = Category::where('status', '<>', 'deleted')
@@ -109,8 +115,10 @@ class FileDBSynchronizerService
         $offers = $this->dom->getElementsByTagName('offer');
         Offer::where('status', '<>', 'deleted')
             ->update(['delete_sign' => true]);
+        $counter = 0;
         /** @var DOMNode $offerNode */
         foreach ($offers as $offerNode) {
+            $counter++;
             $shop_id = $offerNode->getAttribute('id');
 
             $offer = Offer::where('shop_id', $shop_id)->first();
@@ -120,6 +128,7 @@ class FileDBSynchronizerService
             } else {
                 $this->addOffer($offerNode);
             }
+            echo "Processed {$counter} offer\n";
         }
 
         $deletedOffers = Offer::where('delete_sign', true)->get();
@@ -291,8 +300,8 @@ class FileDBSynchronizerService
         try {
             $this->retry(function () use ($url, $path) {
                 $this->internalDownloadFile($url, $path);
-            });
-        } catch (Exeption $e) {
+            }, 5, 10);
+        } catch (Exception $e) {
             Log::critical("File upload error ({$url}): " . $e->getMessage());
         }
     }
