@@ -13,6 +13,7 @@
     <div class="collapse navbar-collapse" id="navbarText">
         <ul class="navbar-nav mr-auto">
             <li><a class="nav-link logout-link" href="{{route('categories')}}">Категории из файла</a></li>
+            <li><a class="nav-link logout-link" href="{{route('album')}}">Подбоки из ВКонтакте</a></li>
         </ul>
         <span class="navbar-text">
           {{app('request')->attributes->get('authData')['full_name']}}

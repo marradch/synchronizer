@@ -15,6 +15,21 @@ window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
  * for events that are broadcast by Laravel. Echo and event broadcasting
  * allows your team to easily build robust real-time web applications.
  */
+import Vue from 'vue'
+import Vuikit from 'vuikit'
+import AlbumsList from './components/album.vue'
+import CategoriesList from './components/category.vue'
+import '@vuikit/theme'
+
+Vue.use(Vuikit);
+
+new Vue( {
+    el: '#app',
+    components: {
+        AlbumsList: AlbumsList,
+        CategoriesList: CategoriesList,
+    },
+});
 
 // import Echo from 'laravel-echo';
 

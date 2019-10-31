@@ -27,6 +27,10 @@ Route::group(['middleware' => ['vk.token.verify']], function () {
         Route::get('/set-load-to-vk-yes/{ids}', 'CategoryController@setLoadToVKYes')->name('set-load-to-vk-yes');
         Route::get('/set-load-to-vk-no/{ids}', 'CategoryController@setLoadToVKNo')->name('set-load-to-vk-no');
 
-        Route::get('/get-selected-count', 'CategoryController@getSelectedCount')->name('set-load-to-vk-no');
+        Route::get('/get-selected-count', 'CategoryController@getSelectedCount')->name('get-selected-count');
+
+        Route::get('/albums', 'AlbumController@index')->name('album');
+        Route::get('/get-albums/{page}', 'AlbumController@getAlbums')->name('get-albums');
+        Route::post('/set-task', 'AlbumController@setTask')->name('set-task');
     });
 });
