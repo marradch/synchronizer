@@ -13,4 +13,9 @@ class Album extends Model
     ];
 
     protected $table = 'vk_delete_album__albums';
+
+    public function task()
+    {
+        return $this->belongsTo('App\Task', 'task_id', 'id');
+    }
 }

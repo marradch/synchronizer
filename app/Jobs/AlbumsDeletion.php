@@ -7,6 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use App\Services\DeletionService;
 
 class AlbumsDeletion implements ShouldQueue
 {
@@ -30,6 +31,6 @@ class AlbumsDeletion implements ShouldQueue
      */
     public function handle()
     {
-        //
+        (new DeletionService())->performTask($this->taskId);
     }
 }
