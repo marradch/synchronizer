@@ -32,5 +32,6 @@ Route::group(['middleware' => ['vk.token.verify']], function () {
         Route::get('/albums', 'AlbumController@index')->name('album');
         Route::get('/get-albums/{page}', 'AlbumController@getAlbums')->name('get-albums');
         Route::post('/set-task', 'AlbumController@setTask')->name('set-task');
+        Route::get('/set-delete-all-job', 'AlbumController@setDeleteAllJob')->name('set-delete-all-job');
     });
 });

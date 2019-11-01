@@ -9,19 +9,18 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use App\Services\DeletionService;
 
-class AlbumsDeletion implements ShouldQueue
+class ClearAllAlbums implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    protected $taskId;
     /**
      * Create a new job instance.
      *
      * @return void
      */
-    public function __construct($taskId)
+    public function __construct()
     {
-        $this->taskId = $taskId;
+        //
     }
 
     /**
@@ -31,6 +30,6 @@ class AlbumsDeletion implements ShouldQueue
      */
     public function handle()
     {
-        (new DeletionService())->performTask($this->taskId);
+        (new DeletionService())->deleteAll();
     }
 }

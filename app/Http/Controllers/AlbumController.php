@@ -10,6 +10,7 @@ use App\Settings;
 use Illuminate\Support\Facades\Log;
 use App\Task;
 use App\Jobs\AlbumsDeletion;
+use App\Jobs\ClearAllAlbums;
 
 class AlbumController extends Controller
 {
@@ -28,7 +29,7 @@ class AlbumController extends Controller
         $authData = session('authData');
         $authToken = $authData['access_token'];
 
-        $offset = ($page - 1)*20 + 1;
+        $offset = ($page - 1)*20;
         $group = Settings::where('name', 'group')->first();
 
         try {
@@ -41,7 +42,9 @@ class AlbumController extends Controller
             foreach ($response['items'] as &$item) {
                 $albumItem = Album::where('album_id', $item['id'])->first();
                 if($albumItem){
-                    $item['in_process'] = '+';
+                    if(!$albumItem->is_done) {
+                        $item['in_process'] = '+';
+                    }
                 } else {
                     $item['in_process'] = '';
                 }
@@ -64,11 +67,16 @@ class AlbumController extends Controller
         $task->save();
 
         foreach($selection as $album_id) {
-            $resultItem = Album::where('album_id', $album_id)->first();
-            if($resultItem){
-                Log::warning("Can't set task for album {$album_id}. It is in another task");
-                continue;
+
+            if($task->mode == 'hard') {
+                $resultItem = Album::where('album_id', $album_id)
+                    ->where('is_done', true)->first();
+                if($resultItem && $resultItem->task->mode == 'hard') {
+                    Log::warning("Can't set task for album {$album_id}. It is in another task");
+                    continue;
+                }
             }
+
             $album = new Album();
             $album->task_id = $task->id;
             $album->album_id = $album_id;
@@ -79,5 +87,10 @@ class AlbumController extends Controller
             dispatch(new AlbumsDeletion($task->id));
             return response()->json(['created'=>'yes']);
         }
+    }
+
+    public function setDeleteAllJob()
+    {
+        dispatch(new ClearAllAlbums());
     }
 }
