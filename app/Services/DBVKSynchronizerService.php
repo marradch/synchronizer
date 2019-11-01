@@ -3,11 +3,10 @@
 namespace App\Services;
 
 use App\Traits\RetryTrait;
+use App\Traits\LaunchableTrait;
 use Exception;
 use Throwable;
 use VK\Client\VKApiClient;
-use App\Token;
-use App\Settings;
 use App\Category;
 use App\Offer;
 use App\Picture;
@@ -17,10 +16,11 @@ use Illuminate\Database\Eloquent\Builder;
 class DBVKSynchronizerService
 {
     use RetryTrait;
+    use LaunchableTrait;
 
-    private $group;
-    private $token;
-    private $VKApiClient;
+    protected $group;
+    protected $token;
+    protected $VKApiClient;
 
     public function __construct()
     {
@@ -34,6 +34,8 @@ class DBVKSynchronizerService
             return;
         }
 
+        echo "start loading to VK\n";
+
         $this->loadAddedCategoryToVK();
         $this->loadAddedOffersToVK();
 
@@ -42,13 +44,20 @@ class DBVKSynchronizerService
 
         $this->processDeletedCategories();
         $this->processDeletedOffers();
+
+        echo "end loading to VK\n";
     }
 
     private function loadAddedCategoryToVK()
     {
         $token = $this->token;
 
+        echo "start to add categories\n";
+
         foreach ($this->getAvailableCategoriesForSynchronize('added') as $category) {
+
+            echo "start to add category {$category->id}\n";
+
             try {
 
                 $paramsArray = [
@@ -61,8 +70,10 @@ class DBVKSynchronizerService
                     $pictureItem->vk_id = $this->loadPictureToVK($pictureItem);
 
                     if (!$pictureItem->vk_id) {
-                        $category->vk_loading_error = "Category {$category->name}($category->id) hasn't the picture";
-                        Log::warning("Category {$category->name}($category->id) hasn't the picture");
+                        $mess = "Category {$category->name}($category->id) hasn't the picture\n";
+                        $category->vk_loading_error .= $mess;
+                        Log::warning($mess);
+                        echo $mess;
                     } else {
                         $paramsArray['photo_id'] = $pictureItem->vk_id;
                     }
@@ -71,8 +82,10 @@ class DBVKSynchronizerService
                     if ($pictureInAnotherCategory) {
                         $vk_id = $this->loadPictureToVK($pictureItem, true);
                         if (!$vk_id) {
-                            $category->vk_loading_error = "Category {$category->name}($category->id) hasn't the picture";
-                            Log::warning("Category {$category->name}($category->id) hasn't the picture");
+                            $mess = "Category {$category->name}($category->id) hasn't the picture\n";
+                            $category->vk_loading_error .= $mess;
+                            Log::warning($mess);
+                            echo $mess;
                         } else {
                             $paramsArray['photo_id'] = $vk_id;
                         }
@@ -90,16 +103,23 @@ class DBVKSynchronizerService
                 $category->markAsSynchronized($response['market_album_id']);
 
             } catch (Exception $e) {
-                $category->vk_loading_error .= PHP_EOL . $e->getMessage();
-                Log::critical('load category ' . $category->shop_id . ': ' . $e->getMessage());
+                $mess = "error to load category {$category->shop_id}: {$e->getMessage()}\n";
+                $category->vk_loading_error .= $mess;
+                Log::critical($mess);
+                echo $mess;
             }
 
             $category->save();
+
+            echo "end process category {$category->id}\n";
         }
+        echo "end to add categories\n";
     }
 
     private function loadPictureToVK($picture, $duplicate = false)
     {
+        echo "start load picture {$picture->id}\n";
+
         $token = $this->token;
         try {
             $paramsArray = [
@@ -110,9 +130,11 @@ class DBVKSynchronizerService
                 return $this->VKApiClient->photos()->getMarketUploadServer($token, $paramsArray);
             });
         } catch (Exception $e) {
-            $picture->vk_loading_error = $e->getMessage();
+            $mess = 'error in getMarketUploadServer: ' . $e->getMessage()."\n";
+            $picture->vk_loading_error .= $mess;
             $picture->save();
-            Log::critical('getMarketUploadServer: ' . $e->getMessage());
+            Log::critical($mess);
+            echo $mess;
 
             return false;
         }
@@ -125,9 +147,10 @@ class DBVKSynchronizerService
                 return $this->VKApiClient->getRequest()->upload($uploadUrl, 'photo', $local_path);
             });
         } catch (Throwable $e) {
-            $picture->vk_loading_error = $picture->vk_loading_error . PHP_EOL . $e->getMessage();
+            $mess = "Picture {$picture->url}($picture->id) wasn't uploaded: {$e->getMessage()}\n";
+            $picture->vk_loading_error .= $mess;
             $picture->save();
-            Log::critical("Picture {$picture->url}($picture->id) wasn't uploaded: {$e->getMessage()}");
+            Log::critical($mess);
             return false;
         }
 
@@ -136,6 +159,8 @@ class DBVKSynchronizerService
             $result = $this->retry(function () use ($token, $resultArray) {
                 return $this->VKApiClient->photos()->saveMarketPhoto($token, $resultArray);
             });
+
+            echo "end load picture {$picture->id}\n";
 
             if (!$duplicate) {
                 $picture->markAsSynchronized($result[0]['id']);
@@ -146,10 +171,11 @@ class DBVKSynchronizerService
                 return $result[0]['id'];
             }
         } catch (Exception $e) {
-            $picture->vk_loading_error = $picture->vk_loading_error . PHP_EOL . $e->getMessage();
+            $mess = "error to load picture {$picture->id}: {$e->getMessage()}\n";
+            $picture->vk_loading_error .= $mess;
             $picture->save();
-            Log::critical('load picture for offer ' . $picture->offer->shop_id . ': ' . $e->getMessage());
-
+            Log::critical($mess);
+            echo $mess;
             return false;
         }
     }
@@ -173,9 +199,14 @@ class DBVKSynchronizerService
 
     private function loadAddedOffersToVK()
     {
+        echo "start to add offers\n";
+
         $token = $this->token;
 
         foreach ($this->getAvailableOffersForSynchronize('added') as $offer) {
+
+            echo "start to add offer {$offer->id}\n";
+
             $this->loadOfferPictures($offer);
             $picturesIds = $offer->prepareOfferPicturesVKIds();
 
@@ -196,11 +227,11 @@ class DBVKSynchronizerService
 
                 $offer->markAsSynchronized($response['market_item_id']);
             } catch (Exception $e) {
-                Log::critical('load offer ' . $offer->shop_id . ':' . $e->getMessage());
-                $offer->vk_loading_error = $e->getMessage();
+                $mess = "error to add offer {$offer->shop_id}: {$e->getMessage()}\n";
+                Log::critical($mess);
+                $offer->vk_loading_error .= $mess;
+                echo $mess;
             }
-
-            $offer->save();
 
             $paramsArray = [
                 'owner_id' => '-' . $this->group,
@@ -213,9 +244,18 @@ class DBVKSynchronizerService
                     return $this->VKApiClient->market()->addToAlbum($token, $paramsArray);
                 });
             } catch (Exception $e) {
-                Log::critical('add to album for offer ' . $offer->shop_id . ':' . $e->getMessage());
+                $mess = "add to album for offer {$offer->shop_id}: {$e->getMessage()}\n";
+                Log::critical($mess);
+                echo $mess;
+                $offer->vk_loading_error .= $mess;
             }
+
+            $offer->save();
+
+            echo "end to add offer {$offer->id}\n";
         }
+
+        echo "end to add offers\n";
     }
 
     private function loadOfferPictures($offer)
@@ -224,6 +264,7 @@ class DBVKSynchronizerService
             ->where('synchronized', false)
             ->where('status', '<>', 'deleted')
             ->get();
+
 
         foreach ($pictures as $picture) {
             $this->loadPictureToVK($picture);
@@ -255,52 +296,18 @@ class DBVKSynchronizerService
         return $categorySettingsFilter;
     }
 
-    private function checkAbilityOfLoading()
-    {
-        $isTokenSet = $this->setToken();
-        if (!$isTokenSet) {
-            Log::critical('Токен либо не установлен. Либо не действительный');
-            return false;
-        }
-
-        $isGroupSet = $this->setGroup();
-        if (!$isGroupSet) {
-            Log::critical('Нет установленной группы для загрузки фотографий');
-            return false;
-        }
-
-        return true;
-    }
-
-    private function setGroup()
-    {
-        $group = Settings::where('name', 'group')->first();
-        if ($group) {
-            $this->group = $group->value;
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    private function setToken()
-    {
-        $hasToken = (new VKAuthService())->checkOfflineToken();
-        sleep(1);
-        if ($hasToken) {
-            $this->token = Token::first()->token;
-            return true;
-        }
-        return false;
-    }
-
     // functions for update
 
     private function processEditedCategories()
     {
         $token = $this->token;
 
+        echo "start to edit categories\n";
+
         foreach ($this->getAvailableCategoriesForSynchronize('edited') as $category) {
+
+            echo "start to edit category {$category->id}\n";
+
             try {
                 $paramsArray = [
                     'owner_id' => '-' . $this->group,
@@ -312,27 +319,27 @@ class DBVKSynchronizerService
                     return $this->VKApiClient->market()->editAlbum($token, $paramsArray);
                 });
 
-                if ($response) {
-                    $category->markAsSynchronized();
-                } else {
-                    $errorText = 'edit category ' . $category->shop_id . ': something went wrong';
-                    $category->vk_loading_error .= PHP_EOL . $errorText;
-                    Log::critical($errorText);
-                }
+                $category->markAsSynchronized();
             } catch (Exception $e) {
-                $category->vk_loading_error .= PHP_EOL . $e->getMessage();
-                Log::critical('edit category ' . $category->shop_id . ': ' . $e->getMessage());
+                $mess = "error to edit category {$category->shop_id}: {$e->getMessage()}\n";
+                $category->vk_loading_error .= $mess;
+                Log::critical($mess);
+                echo $mess;
             }
 
             $category->save();
+            echo "end to edit category {$category->id}\n";
         }
+        echo "end to edit categories\n";
     }
 
     private function processEditedOffers()
     {
+        echo "start to edit offers\n";
         $token = $this->token;
 
         foreach ($this->getAvailableOffersForSynchronize('edited') as $offer) {
+            echo "start to edit offer {$offer->id}\n";
             $this->loadOfferPictures($offer);
             $picturesIds = $offer->prepareOfferPicturesVKIds();
 
@@ -354,11 +361,11 @@ class DBVKSynchronizerService
 
                 $offer->markAsSynchronized($response['market_item_id']);
             } catch (Exception $e) {
-                Log::critical('load offer ' . $offer->shop_id . ':' . $e->getMessage());
-                $offer->vk_loading_error = $e->getMessage();
+                $mess = "error to load offer {$offer->shop_id}: {$e->getMessage()}\n";
+                Log::critical($mess);
+                $offer->vk_loading_error .= $mess;
+                echo $mess;
             }
-
-            $offer->save();
 
             if ($offer->shop_category_id == $offer->shop_old_category_id) {
                 continue;
@@ -376,7 +383,10 @@ class DBVKSynchronizerService
                     return $this->VKApiClient->market()->removeFromAlbum($token, $paramsArray);
                 });
             } catch (Exception $e) {
-                Log::critical('remove to album for offer ' . $offer->shop_id . ':' . $e->getMessage());
+                $mess = "error to remove to album for offer {$offer->shop_id}: {$e->getMessage()}\n";
+                Log::critical($mess);
+                $offer->vk_loading_error .= $mess;
+                echo $mess;
             }
 
             $paramsArray['album_ids'] = $offer->category->vk_id;
@@ -386,9 +396,16 @@ class DBVKSynchronizerService
                     return $this->VKApiClient->market()->addToAlbum($token, $paramsArray);
                 });
             } catch (Exception $e) {
-                Log::critical('add to album for offer ' . $offer->shop_id . ':' . $e->getMessage());
+                $mess = "add to album for offer {$offer->shop_id}: {$e->getMessage()}\n";
+                $offer->vk_loading_error .= $mess;
+                Log::critical($mess);
+                echo $mess;
             }
+
+            $offer->save();
+            echo "end to edit offer {$offer->id}\n";
         }
+        echo "end to edit offers\n";
     }
 
     private function deletePhotos()
@@ -442,8 +459,11 @@ class DBVKSynchronizerService
     private function processDeletedCategories()
     {
         $token = $this->token;
+        echo "start to delete categories\n";
 
         foreach ($this->getAvailableCategoriesForSynchronize('deleted') as $category) {
+            echo "start to delete category {$category->id}\n";
+
             if (!$category->vk_id) {
                 continue;
             }
@@ -457,31 +477,33 @@ class DBVKSynchronizerService
                     return $this->VKApiClient->market()->deleteAlbum($token, $paramsArray);
                 });
 
-                if ($response) {
-                    $category->markAsSynchronized();
-                } else {
-                    $errorText = 'delete category ' . $category->shop_id . ': something went wrong';
-                    $category->vk_loading_error .= PHP_EOL . $errorText;
-                    Log::critical($errorText);
-                }
+                $category->markAsSynchronized();
             } catch (Exception $e) {
-                $category->vk_loading_error .= PHP_EOL . $e->getMessage();
-                Log::critical('delete category ' . $category->shop_id . ': ' . $e->getMessage());
+                $mess = "delete category {$category->shop_id}: {$e->getMessage()}\n";
+                $category->vk_loading_error .= $mess;
+                Log::critical($mess);
+                echo $mess;
             }
 
             $category->save();
+            echo "end to delete category {$category->id}\n";
         }
 
         Category::where('status', 'deleted')
             ->where('synchronized', true)
             ->update(['can_load_to_vk' => 'no']);
+
+        echo "end to delete category\n";
     }
 
     private function processDeletedOffers()
     {
         $token = $this->token;
 
+        echo "start to delete offers\n";
+
         foreach ($this->getAvailableOffersForSynchronize('deleted') as $offer) {
+            echo "start to delete offer {$offer->id}\n";
             if (!$offer->vk_id) {
                 continue;
             }
@@ -495,19 +517,18 @@ class DBVKSynchronizerService
                     return $this->VKApiClient->market()->delete($token, $paramsArray);
                 });
 
-                if ($response) {
-                    $offer->markAsSynchronized();
-                } else {
-                    $errorText = 'delete offer ' . $offer->shop_id . ': something went wrong';
-                    $offer->vk_loading_error .= PHP_EOL . $errorText;
-                    Log::critical($errorText);
-                }
+                $offer->markAsSynchronized();
             } catch (Exception $e) {
-                $offer->vk_loading_error .= PHP_EOL . $e->getMessage();
-                Log::critical('delete offer ' . $offer->shop_id . ': ' . $e->getMessage());
+                $mess = "delete offer {$offer->shop_id}: {$e->getMessage()}\n";
+                $offer->vk_loading_error .= $mess;
+                Log::critical($mess);
+                echo $mess;
             }
 
             $offer->save();
+            echo "end to delete offer {$offer->id}\n";
         }
+
+        echo "end to delete offers\n";
     }
 }

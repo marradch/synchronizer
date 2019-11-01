@@ -19,7 +19,7 @@ class CategoryController extends Controller
 
     public function getCategories()
     {
-        $categories = Category::paginate(20);
+        $categories = Category::paginate(10);
 
         return $categories->toJson();
     }

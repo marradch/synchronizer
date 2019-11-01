@@ -26,17 +26,18 @@ class AlbumController extends Controller
 
     public function getAlbums($page)
     {
+        $perPage = 20;
         $authData = session('authData');
         $authToken = $authData['access_token'];
 
-        $offset = ($page - 1)*20;
+        $offset = ($page - 1)*$perPage;
         $group = Settings::where('name', 'group')->first();
 
         try {
             $paramsArray = [
                 'offset' => $offset,
                 'owner_id' => '-'.$group->value,
-                'count' => 20
+                'count' => $perPage
             ];
             $response = (new VKApiClient())->market()->getAlbums($authToken, $paramsArray);
             foreach ($response['items'] as &$item) {

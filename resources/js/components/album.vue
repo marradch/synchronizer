@@ -35,8 +35,8 @@ export default {
             ],
             selection: [],
             page: 1,
-            per_page: 20,
-            total: 100,
+            per_page: 10,
+            total: 0,
             messages: [],
             gettingDataNow: 0
         }
@@ -82,7 +82,7 @@ export default {
                     if(response.data.created != undefined) {
                         this.messages.push('Ваша задача успешно отправленна в обработку!');
                     } else {
-                        this.messages.push('Задача не была создана. Проверьте правильность выбора!');
+                        this.messages.push('Задача не была создана. Проверьте правильность выбора или настройки очереди задач!');
                     }
                     this.selection = [];
                 }).catch(error => console.log(error));
