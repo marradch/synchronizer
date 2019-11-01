@@ -6,6 +6,7 @@
         <vk-table :data="data" :selected-rows.sync="selection">
             <vk-table-column-select cell="synchronized"></vk-table-column-select>
             <vk-table-column title="Имя" cell="prepared_name"></vk-table-column>
+            <vk-table-column title="Полное Имя" cell="full_name"></vk-table-column>
         </vk-table>
         <vk-pagination :page.sync="page" :per-page="per_page" :total="total">
             <vk-pagination-page-first></vk-pagination-page-first>

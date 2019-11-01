@@ -57,7 +57,7 @@ class Category extends SynchronizedModel
 
         $preparedNameArray[] = $this->name;
 
-        $this->prepared_name = implode('/', $preparedNameArray);
+        return implode('/', $preparedNameArray);
     }
 
     public function prepareName()
