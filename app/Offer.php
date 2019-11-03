@@ -48,7 +48,13 @@ class Offer extends SynchronizedModel
         $picturesVKIds = $picturesVKIds->toArray();
 
         $mainPicture = array_shift($picturesVKIds);
-        $restPictures = implode(',', $picturesVKIds);
+
+        $shortArray = [];
+        while(count($shortArray) < 4
+            && count($picturesVKIds)) {
+            $shortArray[] = array_shift($picturesVKIds);
+        }
+        $restPictures = implode(',', $shortArray);
 
         return [
             'main_picture' => $mainPicture,
