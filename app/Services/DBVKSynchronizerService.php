@@ -278,8 +278,9 @@ class DBVKSynchronizerService
         $offers = Offer::whereHas('category', function (Builder $query) use ($categorySettingsFilter) {
             $query->whereIn('can_load_to_vk', $categorySettingsFilter);
         })
-            ->where('synchronized', false)
-            ->where('status', $status);
+        ->where('synchronized', false)
+        ->where('status', $status)
+        ->where('is_excluded', false);
 
         foreach ($offers->cursor() as $offer) {
             yield $offer;

@@ -11,6 +11,7 @@ use App\Category;
 use App\Offer;
 use App\Picture;
 use Illuminate\Support\Facades\Log;
+use DB;
 
 class FileDBSynchronizerService
 {
@@ -26,6 +27,7 @@ class FileDBSynchronizerService
         $this->initiateDOM($fileName);
         $this->processCategoriesNodes();
         $this->processOffersNodes();
+        $this->processAggregateProducts();
         echo "End import file {$fileName}\n";
     }
 
@@ -114,6 +116,7 @@ class FileDBSynchronizerService
         /** @var DOMNodeList $offers */
         $offers = $this->dom->getElementsByTagName('offer');
         Offer::where('status', '<>', 'deleted')
+            ->where('is_aggregate', false)
             ->update(['delete_sign' => true]);
         $counter = 0;
         /** @var DOMNode $offerNode */
@@ -136,6 +139,238 @@ class FileDBSynchronizerService
             $offer->setStatus('deleted');
             $offer->save();
         }
+    }
+
+    private function processAggregateProducts()
+    {
+        $this->addAggregateProducts();
+        $this->modifyAggregateProducts();
+    }
+
+    private function modifyAggregateProducts()
+    {
+        echo "start to modify aggregate products\n";
+
+        $resultArray = DB::table('offers as of1')
+            ->select('of1.check_sum as aggr_check_sum', 'of1.id as aggr_id', 'of2.*')
+            ->join('offers as of2', function ($join) {
+                $join->on('of2.vendor_code', 'like', DB::raw('concat(of1.vendor_code, \'%\')'));
+                $join->on('of1.id', '<>', 'of2.id');
+                $join->where('of1.is_aggregate', 1);
+                $join->where('of2.is_aggregate', 0);
+            })
+            ->orderBy('aggr_id')
+            ->get();
+
+        $resultItemPrev = null;
+        $currentSizes = [];
+        $currentParticipants = [];
+        $isEditionNeed = false;
+
+        foreach($resultArray as $resultItem) {
+            if($resultItemPrev && $resultItem->aggr_id != $resultItemPrev->aggr_id) {
+                $this->modifyAggregate($resultItemPrev, $currentSizes, $currentParticipants, $isEditionNeed);
+
+                // обнуление подготовочных данных
+                $currentSizes = [];
+                $currentParticipants = [];
+                $isEditionNeed = false;
+            }
+
+            // инициализирем новые данные подготовительные данные для следующего агрегата
+            // на основе первого оригинального айтема
+
+            // записываем в подготовительные данные все присоединенные результаты
+            if($resultItem->status != 'deleted') {
+                $paramsArray = unserialize($resultItem->params);
+                $currentSizes[] = $paramsArray['Размер'];
+                $currentParticipants[] = $resultItem->id;
+                $isEditionNeed = (!$resultItem->synch_with_aggregate) ? true : $isEditionNeed;
+            }
+
+            $resultItemPrev = $resultItem;
+        }
+        if($resultItemPrev) {
+            $this->modifyAggregate($resultItemPrev, $currentSizes, $currentParticipants, $isEditionNeed);
+        }
+
+        echo "end to modify aggregate products\n";
+    }
+
+    private function modifyAggregate($baseItem, $currentSizes, $currentParticipants, $isEditionNeed)
+    {
+        echo "Try to modify aggregate {$baseItem->aggr_id}\n";
+
+        // принятие решения о необходимости обновить/удалить агрегат
+        if(!count($currentParticipants)) {
+            $removedOffer = Offer::find($baseItem->aggr_id);
+            $removedOffer->setStatus('deleted');
+            $removedOffer->save();
+        } else {
+            sort($currentParticipants);
+            $newCheckSum = md5(serialize($currentParticipants));
+            // обновляем агрегат, если изменилось количество его участников
+            // или кто-то из его предшественников был отредактирован
+            $isEditionNeed = ($newCheckSum != $baseItem->aggr_check_sum) ? true : $isEditionNeed;
+            if($isEditionNeed) {
+                $this->fillAggregate($baseItem, $currentSizes, $currentParticipants, $baseItem->aggr_id);
+            }
+        }
+    }
+
+    private function addAggregateProducts()
+    {
+        echo "start to add aggregate products\n";
+
+        $resultArray = DB::table('offers as of1')
+            ->select('of1.*', 'of2.id as add_id', 'of2.params as add_params')
+            ->join('offers as of2', function ($join) {
+                $join->on('of2.vendor_code', 'like', DB::raw('concat(of1.vendor_code, \'%\')'));
+                $join->on('of1.id', '<>', 'of2.id');
+                $join->where('of1.is_excluded', 0);
+                $join->where('of1.is_aggregate', 0);
+            })
+        ->orderBy('vendor_code')
+        ->get();
+
+        $resultItemPrev = null;
+        $currentSizes = [];
+        $currentParticipants = [];
+        $skip = false;
+
+        foreach($resultArray as $resultItem) {
+            if($resultItemPrev && $resultItem->id != $resultItemPrev->id){
+
+                if($skip) {
+                    Log::warning("Can't create aggregate for {$resultItemPrev->id} because size is absent");
+                } else {
+                    // формирование нового агрегата на основе циклично подготовленных данных
+                    $this->fillAggregate($resultItemPrev, $currentSizes, $currentParticipants);
+                }
+
+                // обнуление подготовочных данных
+                $currentSizes = [];
+                $currentParticipants = [];
+                $skip = false;
+            }
+
+            // инициализирем новые данные подготовительные данные для следующего агрегата
+            // на основе первого оригинального айтема
+            if(!count($currentSizes)) {
+                $paramsArray = unserialize($resultItem->params);
+                if(isset($paramsArray['Размер'])) {
+                    $currentSizes[] = $paramsArray['Размер'];
+                    $currentParticipants[] = $resultItem->id;
+                } else {
+                    $skip = true;
+                    echo $resultItem->id.PHP_EOL;
+                    print_r($paramsArray);
+                }
+            }
+
+            if(!$skip) {
+                // записываем в подготовительные данные все присоединенные результаты
+                $paramsArray = unserialize($resultItem->add_params);
+                $currentSizes[] = $paramsArray['Размер'];
+                $currentParticipants[] = $resultItem->add_id;
+            }
+
+            $resultItemPrev = $resultItem;
+        }
+        if(!$skip && $resultItemPrev) {
+            $this->fillAggregate($resultItemPrev, $currentSizes, $currentParticipants);
+        }
+        echo "end to add aggregate products\n";
+    }
+
+    private function fillAggregate($baseItem, $currentSizes, $currentParticipants, $aggrId = false)
+    {
+        echo "process aggregate for {$baseItem->id}\n";
+
+        // формирование нового агрегата на основе циклично подготовленных данных
+        if(!$aggrId) {
+            $offer = new Offer();
+            $status = 'added';
+        } else {
+            $offer = Offer::find($aggrId);
+            $status = 'edited';
+        }
+        $offer->shop_id = 0;
+        $offer->shop_category_id = $baseItem->shop_category_id;
+        $offer->name = $baseItem->name;
+        $offer->price = $baseItem->price;
+        if(!$aggrId) {
+            $offer->vendor_code = $baseItem->vendor_code;
+        }
+        $offer->origin_description = $baseItem->origin_description;
+        $offer->setStatus($status);
+        $offer->is_aggregate = true;
+
+        $params = unserialize($baseItem->params);
+        if(intval($currentSizes[0])) {
+            sort($currentSizes);
+        } else {
+            usort($currentSizes, 'App\Services\FileDBSynchronizerService::sortSizes');
+        }
+
+        $params['Размер'] = implode(', ', $currentSizes);
+        $offer->params = serialize($params);
+
+        $paramsText = '';
+        $fullDescription = '';
+        foreach ($params AS $name => $value) {
+            $paramsText .= $name . ': ' . $value . PHP_EOL;
+        }
+        $fullDescription .= $paramsText;
+        $fullDescription .= PHP_EOL . $offer->origin_description . PHP_EOL;
+        $fullDescription .= PHP_EOL . 'Пожалуйста, поделитесь ссылкой с друзьями';
+        $offer->description = $fullDescription;
+        sort($currentParticipants);
+        $offer->check_sum = md5(serialize($currentParticipants));
+
+        $offer->save();
+
+        if($aggrId) {
+            $originOffer = Offer::find($baseItem->id);
+            foreach ($originOffer->pictures as $picture) {
+                if($picture->status == 'added') {
+                    $existedPicture = Picture::where('offer_id', $aggrId)
+                        ->where('url', $picture->url)->first();
+                    if(!$existedPicture) {
+                        $newPicture = $picture->replicate();
+                        $newPicture->offer_id = $offer->id;
+                        $newPicture->save();
+                    }
+                } else if($picture->status == 'deleted') {
+                    $existedPicture = Picture::where('offer_id', $aggrId)
+                        ->where('url', $picture->url)->first();
+                    $existedPicture->setStatus('deleted');
+                    $existedPicture->save();
+                }
+            }
+        } else {
+            $originOffer = Offer::find($baseItem->id);
+            foreach($originOffer->pictures as $picture) {
+                $newPicture = $picture->replicate();
+                $newPicture->offer_id = $offer->id;
+                $newPicture->save();
+            }
+        }
+
+        // айтемы, которые вошли в основу агрегата ,
+        // не должны участвовать в загрузке в контакт
+        Offer::whereIn('id', $currentParticipants)->update([
+            'is_excluded' => true,
+            'synch_with_aggregate' => true,
+        ]);
+    }
+
+    private static function sortSizes($a, $b)
+    {
+        $sizes = ['S', 'S-M', 'M', 'M-L', 'L'];
+        $idxA = array_search($a, $sizes);
+        $idxB = array_search($b, $sizes);
+        return ($idxA < $idxB) ? -1 : 1;
     }
 
     /**
@@ -170,6 +405,7 @@ class FileDBSynchronizerService
         } else {
             $this->fillOfferFromNode($offer, $offerNode);
             $offer->setStatus('edited');
+            $offer->synch_with_aggregate = false;
             $offer->save();
 
             $this->actualizePictures($offer, $offerNode);
@@ -212,23 +448,28 @@ class FileDBSynchronizerService
         $params = $offerNode->getElementsByTagName('param');
         $paramsText = '';
         $paramsDescription = '';
+        $paramsArray = [];
 
         foreach ($params AS $paramNode) {
             if ($paramNode->getAttribute('name') == 'Описание') {
                 $paramsDescription = $paramNode->nodeValue;
             } else {
                 $paramsText .= $paramNode->getAttribute('name') . ': ' . $paramNode->nodeValue . PHP_EOL;
+                $paramsArray[$paramNode->getAttribute('name')] = $paramNode->nodeValue;
             }
         }
 
         $fullDescription .= $paramsText;
+        $offer->params = serialize($paramsArray);
 
         if (isset($offerNode->getElementsByTagName('description')[0])) {
             $nodeDescription = trim($offerNode->getElementsByTagName('description')[0]->nodeValue);
             $fullDescription .= PHP_EOL . $nodeDescription . PHP_EOL;
+            $offer->origin_description = $nodeDescription;
         } else {
             if ($paramsDescription) {
                 $fullDescription .= PHP_EOL . $paramsDescription . PHP_EOL;
+                $offer->origin_description = $paramsDescription;
             }
         }
 
