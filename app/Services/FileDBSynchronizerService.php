@@ -313,7 +313,8 @@ class FileDBSynchronizerService
             usort($currentSizes, 'App\Services\FileDBSynchronizerService::sortSizes');
         }
 
-        $params['Размер'] = implode(', ', $currentSizes);
+        unset($params['Размер']);
+        $params['Размеры'] = implode(', ', $currentSizes);
         $offer->params = serialize($params);
 
         $paramsText = '';
