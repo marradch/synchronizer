@@ -368,7 +368,7 @@ class DBVKSynchronizerService
                 echo $mess;
             }
 
-            if ($offer->shop_category_id == $offer->shop_old_category_id) {
+            if ($offer->shop_category_id == $offer->shop_old_category_id || !$offer->shop_old_category_id) {
                 continue;
             }
 
