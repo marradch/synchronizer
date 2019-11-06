@@ -26,7 +26,7 @@ class AlbumController extends Controller
 
     public function getAlbums($page)
     {
-        $perPage = 20;
+        $perPage = 100;
         $authData = session('authData');
         $authToken = $authData['access_token'];
 

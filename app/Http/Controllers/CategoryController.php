@@ -19,7 +19,7 @@ class CategoryController extends Controller
 
     public function getCategories()
     {
-        $categories = Category::paginate(10)->appends(['fullname']);
+        $categories = Category::paginate(100)->appends(['fullname']);
 
         $categories->map(function($item) {
             $item->full_name = $item->buildFullName();

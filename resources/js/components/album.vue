@@ -35,7 +35,7 @@ export default {
             ],
             selection: [],
             page: 1,
-            per_page: 10,
+            per_page: 100,
             total: 0,
             messages: [],
             gettingDataNow: 0
