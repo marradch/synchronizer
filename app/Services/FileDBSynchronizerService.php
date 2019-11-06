@@ -48,7 +48,7 @@ class FileDBSynchronizerService
 
     private function extractFile($file_base_name)
     {
-        $file_name = public_path().'/downloads/'.basename($file_base_name);
+        $file_name = public_path() . '/downloads/' . basename($file_base_name);
 
         $buffer_size = 4096; // read 4kb at a time
         $out_file_name = str_replace('.gz', '', $file_name);
@@ -66,7 +66,7 @@ class FileDBSynchronizerService
 
     private function initiateDOM($fileName)
     {
-        $filePath = public_path().'/downloads/'.$fileName;
+        $filePath = public_path() . '/downloads/' . $fileName;
         if (!file_exists($filePath)) {
             throw new Exception("Can\'t find extracted file $filePath");
         }
@@ -85,7 +85,7 @@ class FileDBSynchronizerService
         Category::where('status', '<>', 'deleted')
             ->update(['delete_sign' => true]);
         $counter = 0;
-        foreach ($categories AS $categoryNode) {
+        foreach ($categories as $categoryNode) {
             $counter++;
             $shop_id = $categoryNode->getAttribute('id');
 
@@ -167,8 +167,8 @@ class FileDBSynchronizerService
         $currentParticipants = [];
         $isEditionNeed = false;
 
-        foreach($resultArray as $resultItem) {
-            if($resultItemPrev && $resultItem->aggr_id != $resultItemPrev->aggr_id) {
+        foreach ($resultArray as $resultItem) {
+            if ($resultItemPrev && $resultItem->aggr_id != $resultItemPrev->aggr_id) {
                 $this->modifyAggregate($resultItemPrev, $currentSizes, $currentParticipants, $isEditionNeed);
 
                 // обнуление подготовочных данных
@@ -181,7 +181,7 @@ class FileDBSynchronizerService
             // на основе первого оригинального айтема
 
             // записываем в подготовительные данные все присоединенные результаты
-            if($resultItem->status != 'deleted') {
+            if ($resultItem->status != 'deleted') {
                 $paramsArray = unserialize($resultItem->params);
                 $currentSizes[] = $paramsArray['Размер'];
                 $currentParticipants[] = $resultItem->id;
@@ -190,7 +190,7 @@ class FileDBSynchronizerService
 
             $resultItemPrev = $resultItem;
         }
-        if($resultItemPrev) {
+        if ($resultItemPrev) {
             $this->modifyAggregate($resultItemPrev, $currentSizes, $currentParticipants, $isEditionNeed);
         }
 
@@ -202,7 +202,7 @@ class FileDBSynchronizerService
         echo "Try to modify aggregate {$baseItem->aggr_id}\n";
 
         // принятие решения о необходимости обновить/удалить агрегат
-        if(!count($currentParticipants)) {
+        if (!count($currentParticipants)) {
             $removedOffer = Offer::find($baseItem->aggr_id);
             $removedOffer->setStatus('deleted');
             $removedOffer->save();
@@ -212,7 +212,7 @@ class FileDBSynchronizerService
             // обновляем агрегат, если изменилось количество его участников
             // или кто-то из его предшественников был отредактирован
             $isEditionNeed = ($newCheckSum != $baseItem->aggr_check_sum) ? true : $isEditionNeed;
-            if($isEditionNeed) {
+            if ($isEditionNeed) {
                 $this->fillAggregate($baseItem, $currentSizes, $currentParticipants, $baseItem->aggr_id);
             }
         }
@@ -230,18 +230,18 @@ class FileDBSynchronizerService
                 $join->where('of1.is_excluded', 0);
                 $join->where('of1.is_aggregate', 0);
             })
-        ->orderBy('vendor_code')
-        ->get();
+            ->orderBy('vendor_code')
+            ->get();
 
         $resultItemPrev = null;
         $currentSizes = [];
         $currentParticipants = [];
         $skip = false;
 
-        foreach($resultArray as $resultItem) {
-            if($resultItemPrev && $resultItem->id != $resultItemPrev->id){
+        foreach ($resultArray as $resultItem) {
+            if ($resultItemPrev && $resultItem->id != $resultItemPrev->id) {
 
-                if($skip) {
+                if ($skip) {
                     Log::warning("Can't create aggregate for {$resultItemPrev->id} because size is absent");
                 } else {
                     // формирование нового агрегата на основе циклично подготовленных данных
@@ -256,19 +256,19 @@ class FileDBSynchronizerService
 
             // инициализирем новые данные подготовительные данные для следующего агрегата
             // на основе первого оригинального айтема
-            if(!count($currentSizes)) {
+            if (!count($currentSizes)) {
                 $paramsArray = unserialize($resultItem->params);
-                if(isset($paramsArray['Размер'])) {
+                if (isset($paramsArray['Размер'])) {
                     $currentSizes[] = $paramsArray['Размер'];
                     $currentParticipants[] = $resultItem->id;
                 } else {
                     $skip = true;
-                    echo $resultItem->id.PHP_EOL;
+                    echo $resultItem->id . PHP_EOL;
                     print_r($paramsArray);
                 }
             }
 
-            if(!$skip) {
+            if (!$skip) {
                 // записываем в подготовительные данные все присоединенные результаты
                 $paramsArray = unserialize($resultItem->add_params);
                 $currentSizes[] = $paramsArray['Размер'];
@@ -277,7 +277,7 @@ class FileDBSynchronizerService
 
             $resultItemPrev = $resultItem;
         }
-        if(!$skip && $resultItemPrev) {
+        if (!$skip && $resultItemPrev) {
             $this->fillAggregate($resultItemPrev, $currentSizes, $currentParticipants);
         }
         echo "end to add aggregate products\n";
@@ -288,7 +288,7 @@ class FileDBSynchronizerService
         echo "process aggregate for {$baseItem->id}\n";
 
         // формирование нового агрегата на основе циклично подготовленных данных
-        if(!$aggrId) {
+        if (!$aggrId) {
             $offer = new Offer();
             $status = 'added';
         } else {
@@ -299,7 +299,7 @@ class FileDBSynchronizerService
         $offer->shop_category_id = $baseItem->shop_category_id;
         $offer->name = $baseItem->name;
         $offer->price = $baseItem->price;
-        if(!$aggrId) {
+        if (!$aggrId) {
             $offer->vendor_code = $baseItem->vendor_code;
         }
         $offer->origin_description = $baseItem->origin_description;
@@ -307,7 +307,7 @@ class FileDBSynchronizerService
         $offer->is_aggregate = true;
 
         $params = unserialize($baseItem->params);
-        if(intval($currentSizes[0])) {
+        if (intval($currentSizes[0])) {
             sort($currentSizes);
         } else {
             usort($currentSizes, 'App\Services\FileDBSynchronizerService::sortSizes');
@@ -319,7 +319,7 @@ class FileDBSynchronizerService
 
         $paramsText = '';
         $fullDescription = '';
-        foreach ($params AS $name => $value) {
+        foreach ($params as $name => $value) {
             $paramsText .= $name . ': ' . $value . PHP_EOL;
         }
         $fullDescription .= $paramsText;
@@ -331,27 +331,29 @@ class FileDBSynchronizerService
 
         $offer->save();
 
-        if($aggrId) {
+        if ($aggrId) {
             $originOffer = Offer::find($baseItem->id);
             foreach ($originOffer->pictures as $picture) {
-                if($picture->status == 'added') {
+                if ($picture->status == 'added') {
                     $existedPicture = Picture::where('offer_id', $aggrId)
                         ->where('url', $picture->url)->first();
-                    if(!$existedPicture) {
+                    if (!$existedPicture) {
                         $newPicture = $picture->replicate();
                         $newPicture->offer_id = $offer->id;
                         $newPicture->save();
                     }
-                } else if($picture->status == 'deleted') {
-                    $existedPicture = Picture::where('offer_id', $aggrId)
-                        ->where('url', $picture->url)->first();
-                    $existedPicture->setStatus('deleted');
-                    $existedPicture->save();
+                } else {
+                    if ($picture->status == 'deleted') {
+                        $existedPicture = Picture::where('offer_id', $aggrId)
+                            ->where('url', $picture->url)->first();
+                        $existedPicture->setStatus('deleted');
+                        $existedPicture->save();
+                    }
                 }
             }
         } else {
             $originOffer = Offer::find($baseItem->id);
-            foreach($originOffer->pictures as $picture) {
+            foreach ($originOffer->pictures as $picture) {
                 $newPicture = $picture->replicate();
                 $newPicture->offer_id = $offer->id;
                 $newPicture->save();
@@ -392,7 +394,7 @@ class FileDBSynchronizerService
         $offer->save();
 
         $pictures = $offerNode->getElementsByTagName('picture');
-        foreach ($pictures AS $pictureNode) {
+        foreach ($pictures as $pictureNode) {
             $this->addPicture($offer->id, $pictureNode);
         }
     }
@@ -421,13 +423,13 @@ class FileDBSynchronizerService
         $checkSumArray[] = $offerNode->getElementsByTagName('price')[0]->nodeValue;
         $checkSumArray[] = $offerNode->getElementsByTagName('name')[0]->nodeValue;
         $params = $offerNode->getElementsByTagName('param');
-        foreach ($params AS $paramNode) {
+        foreach ($params as $paramNode) {
             $checkSumArray[] = $paramNode->getAttribute('name');
             $checkSumArray[] = $paramNode->nodeValue;
         }
         $checkSumArray[] = $offerNode->getElementsByTagName('description')[0]->nodeValue;
         $pictures = $offerNode->getElementsByTagName('picture');
-        foreach ($pictures AS $picture) {
+        foreach ($pictures as $picture) {
             $checkSumArray[] = $picture->nodeValue;
         }
 
@@ -451,7 +453,7 @@ class FileDBSynchronizerService
         $paramsDescription = '';
         $paramsArray = [];
 
-        foreach ($params AS $paramNode) {
+        foreach ($params as $paramNode) {
             if ($paramNode->getAttribute('name') == 'Описание') {
                 $paramsDescription = $paramNode->nodeValue;
             } else {
@@ -488,7 +490,7 @@ class FileDBSynchronizerService
             ->where('status', '<>', 'deleted')
             ->update(['delete_sign' => true]);
 
-        foreach ($picturesNodes AS $pictureNode) {
+        foreach ($picturesNodes as $pictureNode) {
             $actualUrls[] = trim($pictureNode->nodeValue);
 
             $picture = $offer->pictures
@@ -530,7 +532,7 @@ class FileDBSynchronizerService
     {
         $uploadPath = public_path() . '/downloads/';
 
-        if(!file_exists($uploadPath)) {
+        if (!file_exists($uploadPath)) {
             mkdir($uploadPath);
         }
 
