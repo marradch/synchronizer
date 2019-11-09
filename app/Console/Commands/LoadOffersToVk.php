@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Services\DBVKSynchronizerService;
+use Illuminated\Console\WithoutOverlapping;
 
 class LoadOffersToVk extends Command
 {
+    use WithoutOverlapping;
+
     /**
      * The name and signature of the console command.
      *

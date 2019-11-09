@@ -12,6 +12,7 @@
         "ext-curl": "*",
         "ext-dom": "*",
         "fideloper/proxy": "^4.0",
+        "illuminated/console-mutex": "^6.0",
         "laravel/framework": "^6.2",
         "laravel/tinker": "^1.0",
         "sentry/sentry-laravel": "1.4.1",

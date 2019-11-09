@@ -4,8 +4,71 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "eaefc3e6331df08c9c0a34be3ad1205d",
+    "content-hash": "e7411a09bba35a6552981e29c46972de",
     "packages": [
+        {
+            "name": "arvenil/ninja-mutex",
+            "version": "0.6.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/arvenil/ninja-mutex.git",
+                "reference": "8c0f5d10f8fb1481b9d98488dbbe2bf84c2e1a25"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/arvenil/ninja-mutex/zipball/8c0f5d10f8fb1481b9d98488dbbe2bf84c2e1a25",
+                "reference": "8c0f5d10f8fb1481b9d98488dbbe2bf84c2e1a25",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.3.0"
+            },
+            "require-dev": {
+                "codeclimate/php-test-reporter": "0.1.*",
+                "ext-memcache": "*",
+                "ext-memcached": "*",
+                "ext-pdo_mysql": "*",
+                "ext-redis": "*",
+                "mikey179/vfsstream": "1.4.* || 1.5.*",
+                "predis/predis": "1.0.*",
+                "scrutinizer/ocular": "1.1.*"
+            },
+            "suggest": {
+                "ext-memcache": "Create mutex using memcache extension",
+                "ext-memcached": "Create mutex using memcached extension",
+                "ext-pdo_mysql": "Create mutex using MySql",
+                "predis/predis": "Create mutex using Predis (client library for Redis)"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-0": {
+                    "NinjaMutex": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Kamil Dziedzic",
+                    "email": "arvenil@klecza.pl"
+                }
+            ],
+            "description": "Simple to use mutex implementation that can use flock, memcache, memcached, mysql or redis for locking",
+            "homepage": "https://github.com/arvenil/ninja-mutex",
+            "keywords": [
+                "flock",
+                "lock",
+                "locking",
+                "memcache",
+                "memcached",
+                "mutex",
+                "mysql",
+                "redis"
+            ],
+            "time": "2016-05-31T13:47:32+00:00"
+        },
         {
             "name": "clue/stream-filter",
             "version": "v1.4.1",
@@ -603,6 +666,63 @@
                 "psr-7"
             ],
             "time": "2018-07-31T19:32:56+00:00"
+        },
+        {
+            "name": "illuminated/console-mutex",
+            "version": "6.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/dmitry-ivanov/laravel-console-mutex.git",
+                "reference": "8b6ea19b55f4956b94e2b6e0c001bcc40c129b7b"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/dmitry-ivanov/laravel-console-mutex/zipball/8b6ea19b55f4956b94e2b6e0c001bcc40c129b7b",
+                "reference": "8b6ea19b55f4956b94e2b6e0c001bcc40c129b7b",
+                "shasum": ""
+            },
+            "require": {
+                "arvenil/ninja-mutex": "^0.6",
+                "ext-json": "*",
+                "illuminate/console": "^6.0",
+                "illuminate/support": "^6.0",
+                "php": "^7.2"
+            },
+            "require-dev": {
+                "ext-pdo_mysql": "*",
+                "ext-redis": "*",
+                "illuminated/testing-tools": "^6.0",
+                "mockery/mockery": "^1.2",
+                "orchestra/testbench": "^4.0",
+                "phpunit/phpunit": "^8.3",
+                "predis/predis": "^1.1.1"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Illuminated\\Console\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Dmitry Ivanov",
+                    "email": "dmitry.g.ivanov@gmail.com"
+                }
+            ],
+            "description": "Mutex for Laravel console commands.",
+            "keywords": [
+                "command",
+                "console",
+                "laravel",
+                "locker",
+                "mutex",
+                "overlapping"
+            ],
+            "time": "2019-09-13T21:17:31+00:00"
         },
         {
             "name": "jakub-onderka/php-console-color",

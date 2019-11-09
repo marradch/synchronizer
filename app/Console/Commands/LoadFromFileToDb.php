@@ -6,9 +6,12 @@ use Exception;
 use Illuminate\Console\Command;
 use App\Services\FileDBSynchronizerService;
 use Illuminate\Support\Facades\Log;
+use Illuminated\Console\WithoutOverlapping;
 
 class LoadFromFileToDb extends Command
 {
+    use WithoutOverlapping;
+
     /**
      * The name and signature of the console command.
      *
