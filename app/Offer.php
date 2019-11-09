@@ -54,7 +54,6 @@ class Offer extends SynchronizedModel
         $picturesVKIds = $picturesVKIds->toArray();
 
         $mainPicture = array_shift($picturesVKIds);
-
         $shortArray = [];
         while(count($shortArray) < 4
             && count($picturesVKIds)) {

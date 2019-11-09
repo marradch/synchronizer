@@ -203,12 +203,14 @@ class DBVKSynchronizerService
 
         $token = $this->token;
 
+        /** @var Offer $offer */
         foreach ($this->getAvailableOffersForSynchronize('added') as $offer) {
-
             echo "start to add offer {$offer->id}\n";
-
             $this->loadOfferPictures($offer);
             $picturesIds = $offer->prepareOfferPicturesVKIds();
+            if (!$picturesIds['main_picture']) {
+                echo "main picture for {$offer->id} is missing, skip loading\n";
+            }
 
             $paramsArray = [
                 'owner_id' => '-' . $this->group,
@@ -264,7 +266,6 @@ class DBVKSynchronizerService
             ->where('synchronized', false)
             ->where('status', '<>', 'deleted')
             ->get();
-
 
         foreach ($pictures as $picture) {
             $this->loadPictureToVK($picture);
