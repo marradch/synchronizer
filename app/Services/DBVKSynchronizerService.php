@@ -210,8 +210,8 @@ class DBVKSynchronizerService
             $picturesIds = $offer->prepareOfferPicturesVKIds();
             if (!$picturesIds['main_picture']) {
                 echo "main picture for {$offer->id} is missing, skip loading\n";
+                continue;
             }
-
             $paramsArray = [
                 'owner_id' => '-' . $this->group,
                 'name' => $offer->name,
@@ -226,7 +226,6 @@ class DBVKSynchronizerService
                 $response = $this->retry(function () use ($token, $paramsArray) {
                     return $this->VKApiClient->market()->add($token, $paramsArray);
                 });
-
                 $offer->markAsSynchronized($response['market_item_id']);
             } catch (Exception $e) {
                 $mess = "error to add offer {$offer->shop_id}: {$e->getMessage()}\n";
