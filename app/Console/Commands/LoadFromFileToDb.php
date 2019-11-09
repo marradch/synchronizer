@@ -12,6 +12,8 @@ class LoadFromFileToDb extends Command
 {
     use WithoutOverlapping;
 
+    protected $mutexStrategy = 'mysql';
+
     /**
      * The name and signature of the console command.
      *
