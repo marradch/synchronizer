@@ -9,6 +9,7 @@ use VK\Client\VKApiClient;
 use App\Task;
 use App\Album;
 use Illuminate\Support\Facades\Log;
+use App\Category;
 
 class DeletionService
 {
@@ -187,6 +188,42 @@ class DeletionService
                         echo $mes;
                     }
                 }
+            }
+        }
+    }
+
+    public function checkGroups()
+    {
+        $canLoadToVK = $this->checkAbilityOfLoading();
+        if (!$canLoadToVK) {
+            return;
+        }
+
+        $token = $this->token;
+
+        $paramsArray = [
+            'owner_id' => '-' . $this->group,
+            'count' => 100,
+        ];
+
+
+        try {
+            $response = $this->retry(function () use ($token, $paramsArray) {
+                return $this->VKApiClient->market()->getAlbums($token, $paramsArray);
+            });
+        } catch (Exception $e) {
+            $mes = 'can\'t get albums list : ' . $e->getMessage();
+            Log::critical($mes);
+
+            return;
+        }
+
+        foreach ($response['items'] as $album) {
+            echo "Process album {$album['id']}" . PHP_EOL;
+
+            $existed = Category::where('vk_id', $album['id'])->first();
+            if (!$existed) {
+                echo "Album {$album['id']} - ({$album['title']}) absent in database\n";
             }
         }
     }
