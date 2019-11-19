@@ -12,7 +12,7 @@ class CheckVKGroups extends Command
 {
     use WithoutOverlapping;
 
-    protected $mutexStrategy = 'mysql';
+    protected $mutexStrategy = 'file';
 
     /**
      * The name and signature of the console command.
