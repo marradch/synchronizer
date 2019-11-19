@@ -1,6 +1,6 @@
 #!/bin/bash
-git pull
-composer install
-php artisan migrate --force
-npm install
-npm run production
+sudo git pull
+sudo php composer.phar install
+sudo php artisan migrate --force
+sudo npm install
+sudo npm run production
