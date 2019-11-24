@@ -126,6 +126,10 @@ class FileDBSynchronizerService
 
             $offer = Offer::where('shop_id', $shop_id)->first();
 
+            if ($offer->shop_id = '2726454261') {
+                Log::info("test-edit-price id:{$offer->shop_id}");
+            }
+
             if ($offer) {
                 $this->editOffer($offer, $offerNode);
             } else {
@@ -402,6 +406,9 @@ class FileDBSynchronizerService
     private function editOffer($offer, $offerNode)
     {
         $currentCheckSum = $this->buildOfferCheckSum($offerNode);
+        if ($offer->shop_id = '2726454261') {
+            Log::info("test-edit-price id:{$offer->shop_id} sum:$currentCheckSum");
+        }
         if ($currentCheckSum == $offer->check_sum) {
             $offer->delete_sign = false;
             $offer->save();
