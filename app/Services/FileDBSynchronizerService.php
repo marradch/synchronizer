@@ -442,7 +442,7 @@ class FileDBSynchronizerService
 
         if ($offerNode->getAttribute('id') == '2726454261') {
             Log::info("test-chs-parts");
-            Log::info(print_r($checkSumArray), true);
+            Log::info(print_r($checkSumArray, true));
         }
 
         return md5(serialize($checkSumArray));
