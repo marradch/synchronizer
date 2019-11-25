@@ -126,8 +126,8 @@ class FileDBSynchronizerService
 
             $offer = Offer::where('shop_id', $shop_id)->first();
 
-            if ($offer->shop_id = '2726454261') {
-                Log::info("test-edit-price id:{$offer->shop_id}");
+            if ($shop_id = '2726454261') {
+                Log::info("test-edit-price id:{$shop_id}");
             }
 
             if ($offer) {
