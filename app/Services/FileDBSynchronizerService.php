@@ -38,7 +38,7 @@ class FileDBSynchronizerService
             throw new Exception('Please setup SHOP_IMPORT_FILE_URL to env');
         }
         echo "Start download file from {$url}\n";
-        $this->downloadFile($url);
+        $this->downloadFile($url, true);
         $fileName = basename($url);
         echo "Start extract file from {$url}\n";
         $this->extractFile($fileName);
@@ -125,10 +125,6 @@ class FileDBSynchronizerService
             $shop_id = $offerNode->getAttribute('id');
 
             $offer = Offer::where('shop_id', $shop_id)->first();
-
-            if ($shop_id == '2726454261') {
-                Log::info("test-edit-price id:{$shop_id}");
-            }
 
             if ($offer) {
                 $this->editOffer($offer, $offerNode);
@@ -406,9 +402,7 @@ class FileDBSynchronizerService
     private function editOffer($offer, $offerNode)
     {
         $currentCheckSum = $this->buildOfferCheckSum($offerNode);
-        if ($offer->shop_id == '2726454261') {
-            Log::info("test-edit-price id:{$offer->shop_id} sum:$currentCheckSum");
-        }
+
         if ($currentCheckSum == $offer->check_sum) {
             $offer->delete_sign = false;
             $offer->save();
@@ -438,11 +432,6 @@ class FileDBSynchronizerService
         $pictures = $offerNode->getElementsByTagName('picture');
         foreach ($pictures as $picture) {
             $checkSumArray[] = $picture->nodeValue;
-        }
-
-        if ($offerNode->getAttribute('id') == '2726454261') {
-            Log::info("test-chs-parts");
-            Log::info(print_r($checkSumArray, true));
         }
 
         return md5(serialize($checkSumArray));
@@ -540,7 +529,7 @@ class FileDBSynchronizerService
         $this->downloadFile($pictureNode->nodeValue);
     }
 
-    private function downloadFile($url)
+    private function downloadFile($url, $force = false)
     {
         $uploadPath = public_path() . '/downloads/';
 
@@ -549,7 +538,7 @@ class FileDBSynchronizerService
         }
 
         $path = $uploadPath . basename($url);
-        if (file_exists($path)) {
+        if (!$force && file_exists($path)) {
             return;
         }
 
