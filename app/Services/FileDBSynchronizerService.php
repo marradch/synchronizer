@@ -434,6 +434,11 @@ class FileDBSynchronizerService
             $checkSumArray[] = $picture->nodeValue;
         }
 
+        if($offerNode->getAttribute('id') == '2726454261'){
+            Log::info("test-chs-build");
+            Log::info(print_r($checkSumArray, true));
+        }
+
         return md5(serialize($checkSumArray));
     }
 
