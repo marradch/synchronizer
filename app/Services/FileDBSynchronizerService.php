@@ -406,7 +406,7 @@ class FileDBSynchronizerService
     private function editOffer($offer, $offerNode)
     {
         $currentCheckSum = $this->buildOfferCheckSum($offerNode);
-        if ($offer->shop_id = '2726454261') {
+        if ($offer->shop_id == '2726454261') {
             Log::info("test-edit-price id:{$offer->shop_id} sum:$currentCheckSum");
         }
         if ($currentCheckSum == $offer->check_sum) {
