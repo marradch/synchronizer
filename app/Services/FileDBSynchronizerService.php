@@ -406,12 +406,18 @@ class FileDBSynchronizerService
     private function editOffer($offer, $offerNode)
     {
         $currentCheckSum = $this->buildOfferCheckSum($offerNode);
+        if ($offer->id == 13622) {
+            Log::info("test-chs $currentCheckSum");
+        }
 
         if ($currentCheckSum == $offer->check_sum) {
             $offer->delete_sign = false;
             $offer->save();
         } else {
             $this->fillOfferFromNode($offer, $offerNode);
+            if ($offer->id == 13622) {
+                Log::info("test-make-edit");
+            }
             $offer->setStatus('edited');
             $offer->synch_with_aggregate = false;
             $offer->save();
