@@ -8,7 +8,7 @@ use App\Services\DeletionService;
 use Illuminate\Support\Facades\Log;
 use Illuminated\Console\WithoutOverlapping;
 
-class LoadFromFileToDb extends Command
+class DeleteAllOffersWithoutCategories extends Command
 {
     use WithoutOverlapping;
 
