@@ -271,7 +271,9 @@ class FileDBSynchronizerService
             if (!$skip) {
                 // записываем в подготовительные данные все присоединенные результаты
                 $paramsArray = unserialize($resultItem->add_params);
-                $currentSizes[] = $paramsArray['Размер'];
+                if (!empty($paramsArray['Размер'])) {
+                    $currentSizes[] = $paramsArray['Размер'];
+                }
                 $currentParticipants[] = $resultItem->add_id;
             }
 
@@ -313,7 +315,9 @@ class FileDBSynchronizerService
             usort($currentSizes, 'App\Services\FileDBSynchronizerService::sortSizes');
         }
 
-        unset($params['Размер']);
+        if (empty($paramsArray['Размер'])) {
+            unset($params['Размер']);
+        }
         $params['Размеры'] = implode(', ', $currentSizes);
         $offer->params = serialize($params);
 
