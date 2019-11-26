@@ -145,48 +145,56 @@ class DeletionService
         }
 
         foreach ($response['items'] as $album) {
-            echo "Process album {$album['id']}" . PHP_EOL;
+            $this->deleteOffers($album['id']);
+        }
 
-            $haveMore = true;
+        $this->deleteOffers();
+    }
 
-            while ($haveMore) {
+    private function deleteOffers($albumId = 0)
+    {
+        $token = $this->token;
+        echo "Process album {$albumId}" . PHP_EOL;
 
+        $haveMore = true;
+
+        while ($haveMore) {
+
+            $paramsArray = [
+                'owner_id' => '-' . $this->group,
+                'album_id' => $albumId,
+                'count' => 200,
+            ];
+
+            try {
+                $response = $this->retry(function () use ($token, $paramsArray) {
+                    return $this->VKApiClient->market()->get($token, $paramsArray);
+                });
+            } catch (Exception $e) {
+                $mes = 'can\'t delete all offers for album ' . $albumId . ': ' . $e->getMessage();
+                Log::critical($mes);
+                echo $mes;
+
+                $haveMore = false;
+                continue;
+            }
+
+            $haveMore = (($response['count'] - count($response['items'])) > 0) ? true : false;
+
+            foreach ($response['items'] as $item) {
                 $paramsArray = [
                     'owner_id' => '-' . $this->group,
-                    'album_id' => $album['id'],
-                    'count' => 200,
+                    'item_id' => $item['id'],
                 ];
 
                 try {
-                    $response = $this->retry(function () use ($token, $paramsArray) {
-                        return $this->VKApiClient->market()->get($token, $paramsArray);
+                    $this->retry(function () use ($token, $paramsArray) {
+                        return $this->VKApiClient->market()->delete($token, $paramsArray);
                     });
                 } catch (Exception $e) {
-                    $mes = 'can\'t delete all offers for album ' . $album->album_id . ': ' . $e->getMessage();
+                    $mes = 'can\'t delete all offers for album ' . $albumId . ': ' . $e->getMessage();
                     Log::critical($mes);
                     echo $mes;
-
-                    $haveMore = false;
-                    continue;
-                }
-
-                $haveMore = (($response['count'] - count($response['items'])) > 0) ? true : false;
-
-                foreach ($response['items'] as $item) {
-                    $paramsArray = [
-                        'owner_id' => '-' . $this->group,
-                        'item_id' => $item['id'],
-                    ];
-
-                    try {
-                        $this->retry(function () use ($token, $paramsArray) {
-                            return $this->VKApiClient->market()->delete($token, $paramsArray);
-                        });
-                    } catch (Exception $e) {
-                        $mes = 'can\'t delete all offers for album ' . $album->album_id . ': ' . $e->getMessage();
-                        Log::critical($mes);
-                        echo $mes;
-                    }
                 }
             }
         }
