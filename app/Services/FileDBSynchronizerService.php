@@ -135,10 +135,10 @@ class FileDBSynchronizerService
         }
 
         $deletedOffers = Offer::where('delete_sign', true)->get();
-        foreach ($deletedOffers as $offer) {
+        /*foreach ($deletedOffers as $offer) {
             $offer->setStatus('deleted');
             $offer->save();
-        }
+        }*/
     }
 
     private function processAggregateProducts()
