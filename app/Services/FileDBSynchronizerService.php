@@ -229,6 +229,8 @@ class FileDBSynchronizerService
                 $join->on('of1.id', '<>', 'of2.id');
                 $join->where('of1.is_excluded', 0);
                 $join->where('of1.is_aggregate', 0);
+                $join->where('of2.is_excluded', 0);
+                $join->where('of2.is_aggregate', 0);
             })
             ->orderBy('vendor_code')
             ->get();
@@ -406,18 +408,12 @@ class FileDBSynchronizerService
     private function editOffer($offer, $offerNode)
     {
         $currentCheckSum = $this->buildOfferCheckSum($offerNode);
-        if ($offer->id == 13622) {
-            Log::info("test-chs $currentCheckSum");
-        }
 
         if ($currentCheckSum == $offer->check_sum) {
             $offer->delete_sign = false;
             $offer->save();
         } else {
             $this->fillOfferFromNode($offer, $offerNode);
-            if ($offer->id == 13622) {
-                Log::info("test-make-edit");
-            }
             $offer->setStatus('edited');
             $offer->synch_with_aggregate = false;
             $offer->save();
@@ -442,11 +438,6 @@ class FileDBSynchronizerService
         $pictures = $offerNode->getElementsByTagName('picture');
         foreach ($pictures as $picture) {
             $checkSumArray[] = $picture->nodeValue;
-        }
-
-        if($offerNode->getAttribute('id') == '2726454261'){
-            Log::info("test-chs-build");
-            Log::info(print_r($checkSumArray, true));
         }
 
         return md5(serialize($checkSumArray));
