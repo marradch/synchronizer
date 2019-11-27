@@ -280,7 +280,8 @@ class DBVKSynchronizerService
         })
         ->where('synchronized', false)
         ->where('status', $status)
-        ->where('is_excluded', false);
+        ->where('is_excluded', false)
+        ->orderBy('shop_category_id');
 
         foreach ($offers->cursor() as $offer) {
             yield $offer;
