@@ -209,7 +209,11 @@ class DBVKSynchronizerService
             $this->loadOfferPictures($offer);
             $picturesIds = $offer->prepareOfferPicturesVKIds();
             if (!$picturesIds['main_picture']) {
-                echo "main picture for {$offer->id} is missing, skip loading\n";
+                $mess = "main picture for {$offer->id} is missing, skip loading\n";
+                Log::critical($mess);
+                echo $mess;
+                $offer->vk_loading_error .= $mess;
+                $offer->save();
                 continue;
             }
             $paramsArray = [
