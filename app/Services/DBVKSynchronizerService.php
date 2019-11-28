@@ -232,7 +232,7 @@ class DBVKSynchronizerService
                 });
                 $offer->markAsSynchronized($response['market_item_id']);
             } catch (Exception $e) {
-                $mess = "error to add offer {$offer->shop_id}: {$e->getMessage()}\n";
+                $mess = "error to add offer {$offer->id}: {$e->getMessage()}\n";
                 Log::critical($mess);
                 $offer->vk_loading_error .= $mess;
                 echo $mess;
@@ -249,7 +249,7 @@ class DBVKSynchronizerService
                     return $this->VKApiClient->market()->addToAlbum($token, $paramsArray);
                 });
             } catch (Exception $e) {
-                $mess = "add to album for offer {$offer->shop_id}: {$e->getMessage()}\n";
+                $mess = "add to album for offer {$offer->id}: {$e->getMessage()}\n";
                 Log::critical($mess);
                 echo $mess;
                 $offer->vk_loading_error .= $mess;
@@ -367,7 +367,7 @@ class DBVKSynchronizerService
 
                 $offer->markAsSynchronized($response['market_item_id']);
             } catch (Exception $e) {
-                $mess = "error to load offer {$offer->shop_id}: {$e->getMessage()}\n";
+                $mess = "error to load offer {$offer->id}: {$e->getMessage()}\n";
                 Log::critical($mess);
                 $offer->vk_loading_error .= $mess;
                 echo $mess;
@@ -389,7 +389,7 @@ class DBVKSynchronizerService
                     return $this->VKApiClient->market()->removeFromAlbum($token, $paramsArray);
                 });
             } catch (Exception $e) {
-                $mess = "error to remove to album for offer {$offer->shop_id}: {$e->getMessage()}\n";
+                $mess = "error to remove to album for offer {$offer->id}: {$e->getMessage()}\n";
                 Log::critical($mess);
                 $offer->vk_loading_error .= $mess;
                 echo $mess;
@@ -402,7 +402,7 @@ class DBVKSynchronizerService
                     return $this->VKApiClient->market()->addToAlbum($token, $paramsArray);
                 });
             } catch (Exception $e) {
-                $mess = "add to album for offer {$offer->shop_id}: {$e->getMessage()}\n";
+                $mess = "add to album for offer {$offer->id}: {$e->getMessage()}\n";
                 $offer->vk_loading_error .= $mess;
                 Log::critical($mess);
                 echo $mess;
@@ -525,7 +525,7 @@ class DBVKSynchronizerService
 
                 $offer->markAsSynchronized();
             } catch (Exception $e) {
-                $mess = "delete offer {$offer->shop_id}: {$e->getMessage()}\n";
+                $mess = "delete offer {$offer->id}: {$e->getMessage()}\n";
                 $offer->vk_loading_error .= $mess;
                 Log::critical($mess);
                 echo $mess;
