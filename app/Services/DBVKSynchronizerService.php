@@ -155,6 +155,7 @@ class DBVKSynchronizerService
         }
 
         try {
+            echo print_r($resultArray, true); die;
             $resultArray['group_id'] = $this->group;
             $result = $this->retry(function () use ($token, $resultArray) {
                 return $this->VKApiClient->photos()->saveMarketPhoto($token, $resultArray);
