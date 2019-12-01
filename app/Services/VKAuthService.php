@@ -88,7 +88,7 @@ class VKAuthService
         if ($tokenItem) {
             try {
                 $this->vk->users()->get($tokenItem->token);
-
+                sleep(1);
                 return true;
             } catch (VKApiAuthException $e) {
                 $tokenItem->delete();
@@ -132,6 +132,8 @@ class VKAuthService
                 'user_id' => $user_id,
                 'filter' => 'admin',
             ));
+
+            sleep(1);
 
             if(in_array($group->value, $response['items'])) {
                 $redirectTo = static::DASHBOARD_ROUTE;
