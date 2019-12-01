@@ -183,7 +183,10 @@ class FileDBSynchronizerService
             // записываем в подготовительные данные все присоединенные результаты
             if ($resultItem->status != 'deleted') {
                 $paramsArray = unserialize($resultItem->params);
-                $currentSizes[] = $paramsArray['Размеры'];
+
+                if (empty($paramsArray['Размер'])) continue;
+
+                $currentSizes[] = $paramsArray['Размер'];
                 $currentParticipants[] = $resultItem->id;
                 $isEditionNeed = (!$resultItem->synch_with_aggregate) ? true : $isEditionNeed;
             }
