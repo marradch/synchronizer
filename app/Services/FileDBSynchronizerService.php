@@ -168,9 +168,9 @@ class FileDBSynchronizerService
         $isEditionNeed = false;
 
         foreach ($resultArray as $resultItem) {
+            $paramsArray = unserialize($resultItem->params);
             if ($resultItemPrev && $resultItem->aggr_id != $resultItemPrev->aggr_id) {
                 $this->modifyAggregate($resultItemPrev, $currentSizes, $currentParticipants, $isEditionNeed);
-
                 // обнуление подготовочных данных
                 $currentSizes = [];
                 $currentParticipants = [];
@@ -182,7 +182,18 @@ class FileDBSynchronizerService
 
             // записываем в подготовительные данные все присоединенные результаты
             if ($resultItem->status != 'deleted') {
-                $paramsArray = unserialize($resultItem->params);
+                if (!isset($paramsArray['Размеры'])) {
+                    if (isset($paramsArray['Размер'] )) {
+                        $paramsArray['Размеры'] = [$paramsArray['Размер']];
+                        unset($paramsArray['Размер']);
+                    } else {
+                        $paramsArray['Размеры'] = [];
+                    }
+                    $resultItem->params = serialize($paramsArray);
+                    $currentResultItem = Offer::findOrFail($resultItem->id);
+                    $currentResultItem->params = $resultItem->params;
+                    $currentResultItem->save();
+                }
                 $currentSizes[] = $paramsArray['Размеры'];
                 $currentParticipants[] = $resultItem->id;
                 $isEditionNeed = (!$resultItem->synch_with_aggregate) ? true : $isEditionNeed;
@@ -317,10 +328,12 @@ class FileDBSynchronizerService
             usort($currentSizes, 'App\Services\FileDBSynchronizerService::sortSizes');
         }
 
-        if (empty($paramsArray['Размер'])) {
-            unset($params['Размер']);
+        if (count($currentSizes) > 1) {
+            if (empty($paramsArray['Размер'])) {
+                unset($params['Размер']);
+            }
+            $params['Размеры'] = implode(', ', $currentSizes);
         }
-        $params['Размеры'] = implode(', ', $currentSizes);
         $offer->params = serialize($params);
 
         $paramsText = '';
