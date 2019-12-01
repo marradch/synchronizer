@@ -61,6 +61,8 @@ class VKAuthService
             $state
         );
 
+        sleep(1);
+
         return $loginUrl;
     }
 
@@ -68,6 +70,7 @@ class VKAuthService
     {
         $oauth = new VKOAuth();
         $response = $oauth->getAccessToken($this->appId, $this->appSecret, $this->redirectURI, $code);
+        sleep(1);
         $redirectTo = $this->detectRedirectRouteDependOnGroup($response);
 
         if ($redirectTo == static::ERROR_MEMBER_ROUTE) {
@@ -107,6 +110,7 @@ class VKAuthService
 
         try {
             $this->vk->users()->get($authToken);
+            sleep(1);
         } catch (VKApiAuthException $e) {
             return false;
         }
@@ -171,6 +175,8 @@ class VKAuthService
             'filter' => 'admin',
             'extended' => 1
         ));
+
+        sleep(1);
 
         return $response;
     }
