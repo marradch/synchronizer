@@ -127,6 +127,7 @@ class FileDBSynchronizerService
             $offer = Offer::where('shop_id', $shop_id)->first();
 
             if ($offer) {
+                $offer->turnDeletedStatus();
                 $this->editOffer($offer, $offerNode);
             } else {
                 $this->addOffer($offerNode);
@@ -151,72 +152,63 @@ class FileDBSynchronizerService
     {
         echo "start to modify aggregate products\n";
 
-        $resultArray = DB::table('offers as of1')
-            ->select('of1.check_sum as aggr_check_sum', 'of1.id as aggr_id', 'of2.*')
-            ->join('offers as of2', function ($join) {
-                $join->on('of2.vendor_code', 'like', DB::raw('concat(of1.vendor_code, \'%\')'));
-                $join->on('of1.id', '<>', 'of2.id');
-                $join->where('of1.is_aggregate', 1);
-                $join->where('of2.is_aggregate', 0);
-            })
-            ->orderBy('aggr_id')
-            ->get();
+        foreach ($this->getAggregatesCursor() as $aggregate) {
 
-        $resultItemPrev = null;
-        $currentSizes = [];
-        $currentParticipants = [];
-        $isEditionNeed = false;
+            $currentSizes = [];
+            $currentParticipants = [];
+            $isEditionNeed = false;
 
-        foreach ($resultArray as $resultItem) {
-            if ($resultItemPrev && $resultItem->aggr_id != $resultItemPrev->aggr_id) {
-                $this->modifyAggregate($resultItemPrev, $currentSizes, $currentParticipants, $isEditionNeed);
+            $participants = Offer::where('vendor_code', 'like', "{$aggregate->vendor_code}%")
+                ->where('id', '<>', $aggregate->vendor_code)
+                ->where('is_aggregate', 0)
+                ->orderBy('vendor_code')
+                ->get();
 
-                // обнуление подготовочных данных
-                $currentSizes = [];
-                $currentParticipants = [];
-                $isEditionNeed = false;
+            foreach ($participants as $participant) {
+                if ($participant->status != 'deleted') {
+                    $paramsArray = unserialize($participant->params);
+
+                    if (empty($paramsArray['Размер'])) continue;
+
+                    $currentSizes[] = $paramsArray['Размер'];
+                    $currentParticipants[] = $participant->id;
+                    $isEditionNeed = (!$participant->synch_with_aggregate) ? true : $isEditionNeed;
+                }
             }
 
-            // инициализирем новые данные подготовительные данные для следующего агрегата
-            // на основе первого оригинального айтема
-
-            // записываем в подготовительные данные все присоединенные результаты
-            if ($resultItem->status != 'deleted') {
-                $paramsArray = unserialize($resultItem->params);
-
-                if (empty($paramsArray['Размер'])) continue;
-
-                $currentSizes[] = $paramsArray['Размер'];
-                $currentParticipants[] = $resultItem->id;
-                $isEditionNeed = (!$resultItem->synch_with_aggregate) ? true : $isEditionNeed;
+            if(count($participants)){
+                $this->modifyAggregate($participants[0], $currentSizes, $currentParticipants, $isEditionNeed, $aggregate);
             }
-
-            $resultItemPrev = $resultItem;
-        }
-        if ($resultItemPrev) {
-            $this->modifyAggregate($resultItemPrev, $currentSizes, $currentParticipants, $isEditionNeed);
         }
 
         echo "end to modify aggregate products\n";
     }
 
-    private function modifyAggregate($baseItem, $currentSizes, $currentParticipants, $isEditionNeed)
+    private function getAggregatesCursor()
+    {
+        $offers = Offer::where('is_aggregate', true);
+
+        foreach ($offers->cursor() as $offer) {
+            yield $offer;
+        }
+    }
+
+    private function modifyAggregate($baseItem, $currentSizes, $currentParticipants, $isEditionNeed, $aggregate)
     {
         echo "Try to modify aggregate {$baseItem->aggr_id}\n";
 
         // принятие решения о необходимости обновить/удалить агрегат
         if (!count($currentParticipants)) {
-            $removedOffer = Offer::find($baseItem->aggr_id);
-            $removedOffer->setStatus('deleted');
-            $removedOffer->save();
+            $aggregate->setStatus('deleted');
+            $aggregate->save();
         } else {
             sort($currentParticipants);
             $newCheckSum = md5(serialize($currentParticipants));
             // обновляем агрегат, если изменилось количество его участников
             // или кто-то из его предшественников был отредактирован
-            $isEditionNeed = ($newCheckSum != $baseItem->aggr_check_sum) ? true : $isEditionNeed;
+            $isEditionNeed = ($newCheckSum != $aggregate->check_sum) ? true : $isEditionNeed;
             if ($isEditionNeed) {
-                $this->fillAggregate($baseItem, $currentSizes, $currentParticipants, $baseItem->aggr_id);
+                $this->fillAggregate($baseItem, $currentSizes, $currentParticipants, $aggregate);
             }
         }
     }
@@ -290,23 +282,23 @@ class FileDBSynchronizerService
         echo "end to add aggregate products\n";
     }
 
-    private function fillAggregate($baseItem, $currentSizes, $currentParticipants, $aggrId = false)
+    private function fillAggregate($baseItem, $currentSizes, $currentParticipants, $aggregate = null)
     {
         echo "process aggregate for {$baseItem->id}\n";
 
         // формирование нового агрегата на основе циклично подготовленных данных
-        if (!$aggrId) {
+        if (!$aggregate) {
             $offer = new Offer();
             $status = 'added';
         } else {
-            $offer = Offer::find($aggrId);
+            $offer = $aggregate;
             $status = 'edited';
         }
         $offer->shop_id = 0;
         $offer->shop_category_id = $baseItem->shop_category_id;
         $offer->name = $baseItem->name;
         $offer->price = $baseItem->price;
-        if (!$aggrId) {
+        if (!$aggregate) {
             $offer->vendor_code = $baseItem->vendor_code;
         }
         $offer->origin_description = $baseItem->origin_description;
@@ -340,11 +332,11 @@ class FileDBSynchronizerService
 
         $offer->save();
 
-        if ($aggrId) {
+        if ($aggregate) {
             $originOffer = Offer::find($baseItem->id);
             foreach ($originOffer->pictures as $picture) {
                 if ($picture->status == 'added') {
-                    $existedPicture = Picture::where('offer_id', $aggrId)
+                    $existedPicture = Picture::where('offer_id', $aggregate->id)
                         ->where('url', $picture->url)->first();
                     if (!$existedPicture) {
                         $newPicture = $picture->replicate();
@@ -353,7 +345,7 @@ class FileDBSynchronizerService
                     }
                 } else {
                     if ($picture->status == 'deleted') {
-                        $existedPicture = Picture::where('offer_id', $aggrId)
+                        $existedPicture = Picture::where('offer_id', $aggregate->id)
                             ->where('url', $picture->url)->first();
                         $existedPicture->setStatus('deleted');
                         $existedPicture->save();
