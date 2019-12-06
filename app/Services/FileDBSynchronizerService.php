@@ -122,9 +122,10 @@ class FileDBSynchronizerService
         /** @var DOMNode $offerNode */
         foreach ($offers as $offerNode) {
             $counter++;
-            $shop_id = $offerNode->getAttribute('id');
 
-            $offer = Offer::where('shop_id', $shop_id)->first();
+            $vendorCode = $offerNode->getElementsByTagName('vendorCode')[0]->nodeValue;
+            $offer = Offer::where('vendor_code', $vendorCode)
+                ->where('is_aggregate', false)->first();
 
             if ($offer) {
                 $offer->turnDeletedStatus();
