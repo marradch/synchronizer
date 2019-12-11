@@ -167,10 +167,6 @@ class FileDBSynchronizerService
             $fullNodesSetPresent = false;
         }
 
-        if (!isset($offerNode->getElementsByTagName('description')[0])) {
-            $fullNodesSetPresent = false;
-        }
-
         if (!$fullNodesSetPresent) {
             $id = empty($offerNode->getAttribute('id')) ? 'not known' : $offerNode->getAttribute('id');
             Log::warning("node with id hasn't required nodes ($id)");
@@ -466,7 +462,10 @@ class FileDBSynchronizerService
             $checkSumArray[] = $paramNode->getAttribute('name');
             $checkSumArray[] = $paramNode->nodeValue;
         }
-        $checkSumArray[] = $offerNode->getElementsByTagName('description')[0]->nodeValue;
+        $description = isset($offerNode->getElementsByTagName('description')[0])
+                     ? $offerNode->getElementsByTagName('description')[0]->nodeValue : '';
+
+        $checkSumArray[] = $description;
         $pictures = $offerNode->getElementsByTagName('picture');
         foreach ($pictures as $picture) {
             $checkSumArray[] = $picture->nodeValue;
