@@ -190,6 +190,8 @@ class DBVKSynchronizerService
 
         if ($status == 'added') {
             $categories->has('offers');
+        } else {
+            $categories->where('vk_id', '>', 0);
         }
 
         foreach ($categories->cursor() as $category) {
@@ -287,6 +289,10 @@ class DBVKSynchronizerService
         ->where('is_excluded', false)
         ->orderBy('shop_category_id');
 
+        if ($status != 'added') {
+            $offers->where('vk_id', '>', 0);
+        }
+
         foreach ($offers->cursor() as $offer) {
             yield $offer;
         }
@@ -311,7 +317,6 @@ class DBVKSynchronizerService
         echo "start to edit categories\n";
 
         foreach ($this->getAvailableCategoriesForSynchronize('edited') as $category) {
-
             echo "start to edit category {$category->id}\n";
 
             try {
