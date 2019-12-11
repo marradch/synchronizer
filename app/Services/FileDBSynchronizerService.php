@@ -123,6 +123,10 @@ class FileDBSynchronizerService
         foreach ($offers as $offerNode) {
             $counter++;
 
+            if (!$this->validateOfferNode($offerNode)) {
+                continue;
+            }
+
             $vendorCode = $offerNode->getElementsByTagName('vendorCode')[0]->nodeValue;
             $offer = Offer::where('vendor_code', $vendorCode)
                 ->where('is_aggregate', false)->first();
@@ -141,6 +145,38 @@ class FileDBSynchronizerService
             $offer->setStatus('deleted');
             $offer->save();
         }
+    }
+
+    private function validateOfferNode($offerNode)
+    {
+        $fullNodesSetPresent = true;
+
+        if (!isset($offerNode->getElementsByTagName('vendorCode')[0])) {
+            $fullNodesSetPresent = false;
+        }
+
+        if (!isset($offerNode->getElementsByTagName('categoryId')[0])) {
+            $fullNodesSetPresent = false;
+        }
+
+        if (!isset($offerNode->getElementsByTagName('price')[0])) {
+            $fullNodesSetPresent = false;
+        }
+
+        if (!isset($offerNode->getElementsByTagName('name')[0])) {
+            $fullNodesSetPresent = false;
+        }
+
+        if (!isset($offerNode->getElementsByTagName('description')[0])) {
+            $fullNodesSetPresent = false;
+        }
+
+        if (!$fullNodesSetPresent) {
+            $id = empty($offerNode->getAttribute('id')) ? 'not known' : $offerNode->getAttribute('id');
+            Log::warning("node with id hasn't required nodes ($id)");
+        }
+
+        return $fullNodesSetPresent;
     }
 
     private function processAggregateProducts()

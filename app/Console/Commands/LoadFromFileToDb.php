@@ -49,7 +49,6 @@ class LoadFromFileToDb extends Command
             (new FileDBSynchronizerService())->processFile();
         } catch (Exception $e) {
             Log::critical("Exception while importing file: {$e->getMessage()}");
-            var_dump($e->getTrace());
             return 1;
         }
 
