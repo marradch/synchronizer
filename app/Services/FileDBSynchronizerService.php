@@ -105,6 +105,7 @@ class FileDBSynchronizerService
 
         foreach ($deletedCategories as $category) {
             $category->setStatus('deleted');
+            $category->can_load_to_vk = false;
             $category->save();
         }
 

@@ -184,14 +184,17 @@ class DBVKSynchronizerService
     {
         $categorySettingsFilter = $this->getCategoriesSettingsFilter();
 
-        $categories = Category::whereIn('can_load_to_vk', $categorySettingsFilter)
-            ->where('synchronized', false)
+        $categories = Category::where('synchronized', false)
             ->where('status', $status);
 
         if ($status == 'added') {
             $categories->has('offers');
         } else {
             $categories->where('vk_id', '>', 0);
+        }
+
+        if ($status != 'deleted') {
+            $categories->whereIn('can_load_to_vk', $categorySettingsFilter);
         }
 
         foreach ($categories->cursor() as $category) {
