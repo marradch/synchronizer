@@ -288,11 +288,13 @@ class DBVKSynchronizerService
             $query->whereIn('can_load_to_vk', $categorySettingsFilter);
         })
         ->where('synchronized', false)
-        ->where('status', $status)
         ->where('is_excluded', false)
         ->orderBy('shop_category_id');
 
-        if ($status != 'added') {
+        if ($status == 'added') {
+            $offers->whereRaw("status = 'added' or (status = 'edited' and vk_id = 0)");
+        } else {
+            $offers->where('status', $status);
             $offers->where('vk_id', '>', 0);
         }
 
