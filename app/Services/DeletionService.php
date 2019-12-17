@@ -329,6 +329,7 @@ class DeletionService
                 'owner_id' => '-' . $this->group,
                 'album_id' => $albumId,
                 'count' => 200,
+				'offset' => $offset,
             ];
 
             try {
