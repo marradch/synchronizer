@@ -192,7 +192,7 @@ class DBVKSynchronizerService
         }
 
         if ($status != 'deleted') {
-            $categories->whereIn('can_load_to_vk', true);
+            $categories->where('can_load_to_vk', 'yes');
         }
 
         foreach ($categories->cursor() as $category) {
@@ -414,52 +414,6 @@ class DBVKSynchronizerService
             echo "end to edit offer {$offer->id}\n";
         }
         echo "end to edit offers\n";
-    }
-
-    private function deletePhotos()
-    {
-        $token = $this->token;
-
-        foreach ($this->getPhotosForDelete() as $photo) {
-            $paramsArray = [
-                'owner_id' => '-' . $this->group,
-                'photo_id' => $photo->vk_id
-            ];
-
-            try {
-                $response = $this->retry(function () use ($token, $paramsArray) {
-                    return $this->VKApiClient->photos()->delete($token, $paramsArray);
-                });
-
-                if (!$response) {
-                    continue;
-                }
-
-                $photo->markAsSynchronized();
-            } catch (Exception $e) {
-                Log::critical('delete photo ' . $photo->id . ':' . $e->getMessage());
-                $photo->vk_loading_error = 'delete photo ' . $photo->id . ':' . $e->getMessage();
-            }
-        }
-    }
-
-    private function getPhotosForDelete()
-    {
-        $pictures = Picture::whereHas('offer', function (Builder $query) {
-            $query->whereHas('category', function (Builder $query) {
-                $query->whereIn('can_load_to_vk', true);
-            });
-        })
-            ->where('synchronized', false)
-            ->where('status', 'deleted')
-            ->whereNotIn('vk_id', function ($query) {
-                $query->select('picture_vk_id')->from(with(new Category)->getTable())
-                    ->where('picture_vk_id', '<>', 0);
-            });
-
-        foreach ($pictures->cursor() as $picture) {
-            yield $picture;
-        }
     }
 
     private function processDeletedCategories()
