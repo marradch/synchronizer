@@ -235,4 +235,62 @@ class DeletionService
             }
         }
     }
+	
+	public function removeOffersFromDisabledCategories()
+	{
+		$canLoadToVK = $this->checkAbilityOfLoading();
+        if (!$canLoadToVK) {
+            return;
+        }
+		
+		$token = $this->token;
+
+        echo "start to delete offers\n";
+
+        foreach ($this->getWrongOffersForDelete() as $offer) {
+            echo "start to delete offer {$offer->id}\n";
+            if (!$offer->vk_id) {
+                continue;
+            }
+            try {
+                $paramsArray = [
+                    'owner_id' => '-' . $this->group,
+                    'item_id' => $offer->vk_id,
+                ];
+
+                $response = $this->retry(function () use ($token, $paramsArray) {
+                    return $this->VKApiClient->market()->delete($token, $paramsArray);
+                });
+            } catch (Exception $e) {
+                $mess = "delete offer {$offer->id}: {$e->getMessage()}\n";
+                $offer->vk_loading_error .= $mess;
+                Log::critical($mess);
+                echo $mess;
+            }
+
+            $offer->save();
+            echo "end to delete offer {$offer->id}\n";
+        }
+
+        echo "end to delete offers\n";
+	}
+	
+	private function getWrongOffersForDelete()
+    {
+        $offers = Offer::where('synchronized', false)
+        ->where('is_excluded', false)
+        ->orderBy('shop_category_id');
+		
+		$offers->whereHas('category', function (Builder $query) {
+			$query->where('can_load_to_vk', 'default');
+		});        		
+        
+		$offers->where('status', 'added');
+		$offers->where('vk_id', '>', 0);
+        
+
+        foreach ($offers->cursor() as $offer) {
+            yield $offer;
+        }
+    }
 }
