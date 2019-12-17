@@ -192,7 +192,7 @@ class DBVKSynchronizerService
         }
 
         if ($status != 'deleted') {
-            $categories->where('can_load_to_vk', true);
+            $categories->where('can_load_to_vk', 'yes');
         }
 
         foreach ($categories->cursor() as $category) {
@@ -293,7 +293,7 @@ class DBVKSynchronizerService
 
         if ($status <> 'deleted') {
             $offers->whereHas('category', function (Builder $query) {
-                $query->where('can_load_to_vk', true);
+                $query->where('can_load_to_vk', 'yes');
             });
         }
 
@@ -444,7 +444,7 @@ class DBVKSynchronizerService
     {
         $pictures = Picture::whereHas('offer', function (Builder $query) {
             $query->whereHas('category', function (Builder $query) {
-                $query->where('can_load_to_vk', true);
+                $query->where('can_load_to_vk', 'yes');
             });
         })
             ->where('synchronized', false)
