@@ -279,8 +279,7 @@ class DeletionService
 	
 	private function getWrongOffersForDelete()
     {
-        $offers = Offer::where('synchronized', false)
-        ->where('is_excluded', false)
+        $offers = Offer::where('is_excluded', false)
         ->orderBy('shop_category_id');
 		
 		$offers->whereHas('category', function (Builder $query) {
