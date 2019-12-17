@@ -345,8 +345,9 @@ class DeletionService
                 continue;
             }
 
-            $haveMore = (($response['count'] - count($response['items'])) > 0) ? true : false;
 			$offset += 200;
+            $haveMore = (($response['count'] - $offset) > 0) ? true : false;
+			
 
             foreach ($response['items'] as $item) {
 				
