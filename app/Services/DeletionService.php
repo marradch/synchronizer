@@ -191,10 +191,14 @@ class DeletionService
 
             foreach ($response['items'] as $item) {
 				
+				echo "Process item {$item['id']}" . PHP_EOL;
+				
 				if ($checkInDb) {
 					$offer = Offer::where('vk_id', $item['id'])->first();
 					if ($offer) continue;
-				}				
+				}	
+
+				echo "Start to delete item {$item['id']}" . PHP_EOL;
 				
                 $paramsArray = [
                     'owner_id' => '-' . $this->group,
