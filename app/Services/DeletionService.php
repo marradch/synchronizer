@@ -10,6 +10,7 @@ use App\Task;
 use App\Album;
 use Illuminate\Support\Facades\Log;
 use App\Category;
+use App\Offer;
 
 class DeletionService
 {
