@@ -290,7 +290,7 @@ class DBVKSynchronizerService
 		if($status != 'deleted') {
 			Offer::whereHas('category', function (Builder $query) use ($categorySettingsFilter) {
 				$query->whereIn('can_load_to_vk', $categorySettingsFilter);
-			})
+			});
 		}
 
         if ($status == 'added') {
