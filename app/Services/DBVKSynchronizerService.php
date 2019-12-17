@@ -282,14 +282,15 @@ class DBVKSynchronizerService
 
     private function getAvailableOffersForSynchronize($status)
     {
-        $categorySettingsFilter = $this->getCategoriesSettingsFilter();
-
-        $offers = Offer::whereHas('category', function (Builder $query) use ($categorySettingsFilter) {
-            $query->whereIn('can_load_to_vk', $categorySettingsFilter);
-        })
-        ->where('synchronized', false)
+        $offers = Offer::where('synchronized', false)
         ->where('is_excluded', false)
         ->orderBy('shop_category_id');
+		
+		if($status != 'deleted') {
+			$offers->whereHas('category', function (Builder $query) {
+				$query->where('can_load_to_vk', 'yes');
+			});        
+		}
 
         if ($status == 'added') {
             $offers->whereRaw("(status = 'added' or (status = 'edited' and vk_id = 0))");
