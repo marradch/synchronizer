@@ -280,21 +280,24 @@ class DBVKSynchronizerService
 
     private function getAvailableOffersForSynchronize($status)
     {
+        $categorySettingsFilter = $this->getCategoriesSettingsFilter();
+		
         $offers = Offer::where('synchronized', false)
+
         ->where('is_excluded', false)
         ->orderBy('shop_category_id');
+		
+		if($status != 'deleted') {
+			Offer::whereHas('category', function (Builder $query) use ($categorySettingsFilter) {
+				$query->whereIn('can_load_to_vk', $categorySettingsFilter);
+			});
+		}
 
         if ($status == 'added') {
             $offers->whereRaw("status = 'added' or (status = 'edited' and vk_id = 0)");
         } else {
             $offers->where('status', $status);
             $offers->where('vk_id', '>', 0);
-        }
-
-        if ($status <> 'deleted') {
-            $offers->whereHas('category', function (Builder $query) {
-                $query->where('can_load_to_vk', true);
-            });
         }
 
         foreach ($offers->cursor() as $offer) {
