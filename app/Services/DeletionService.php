@@ -11,6 +11,7 @@ use App\Album;
 use Illuminate\Support\Facades\Log;
 use App\Category;
 use App\Offer;
+use Illuminate\Database\Eloquent\Builder;
 
 class DeletionService
 {
