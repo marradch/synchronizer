@@ -283,7 +283,7 @@ class DBVKSynchronizerService
         $offers = null;
         if ($status != 'deleted') {
             $offers = Offer::whereHas('category', function (Builder $query) {
-                $query->where('can_load_to_vk', '=','yes');
+                $query->whereIn('can_load_to_vk', ['yes']);
             });
         } else {
             $offers = Offer::whereHas('category', function (Builder $query) {
