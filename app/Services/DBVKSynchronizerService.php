@@ -182,8 +182,6 @@ class DBVKSynchronizerService
 
     private function getAvailableCategoriesForSynchronize($status)
     {
-        $categorySettingsFilter = $this->getCategoriesSettingsFilter();
-
         $categories = Category::where('synchronized', false)
             ->where('status', $status);
 
@@ -194,7 +192,7 @@ class DBVKSynchronizerService
         }
 
         if ($status != 'deleted') {
-            $categories->whereIn('can_load_to_vk', $categorySettingsFilter);
+            $categories->whereIn('can_load_to_vk', true);
         }
 
         foreach ($categories->cursor() as $category) {
@@ -282,12 +280,7 @@ class DBVKSynchronizerService
 
     private function getAvailableOffersForSynchronize($status)
     {
-        $categorySettingsFilter = $this->getCategoriesSettingsFilter();
-
-        $offers = Offer::whereHas('category', function (Builder $query) use ($categorySettingsFilter) {
-            $query->whereIn('can_load_to_vk', $categorySettingsFilter);
-        })
-        ->where('synchronized', false)
+        $offers = Offer::where('synchronized', false)
         ->where('is_excluded', false)
         ->orderBy('shop_category_id');
 
@@ -298,19 +291,15 @@ class DBVKSynchronizerService
             $offers->where('vk_id', '>', 0);
         }
 
+        if ($status <> 'deleted') {
+            $offers->whereHas('category', function (Builder $query) {
+                $query->where('can_load_to_vk', true);
+            });
+        }
+
         foreach ($offers->cursor() as $offer) {
             yield $offer;
         }
-    }
-
-    private function getCategoriesSettingsFilter()
-    {
-        $categorySettingsFilter = ['yes'];
-        if (env('SHOP_CAN_LOAD_NEW_DEFAULT', null) == 'yes') {
-            $categorySettingsFilter[] = 'default';
-        }
-
-        return $categorySettingsFilter;
     }
 
     // functions for update
@@ -453,11 +442,9 @@ class DBVKSynchronizerService
 
     private function getPhotosForDelete()
     {
-        $categorySettingsFilter = $this->getCategoriesSettingsFilter();
-
-        $pictures = Picture::whereHas('offer', function (Builder $query) use ($categorySettingsFilter) {
-            $query->whereHas('category', function (Builder $query) use ($categorySettingsFilter) {
-                $query->whereIn('can_load_to_vk', $categorySettingsFilter);
+        $pictures = Picture::whereHas('offer', function (Builder $query) {
+            $query->whereHas('category', function (Builder $query) {
+                $query->whereIn('can_load_to_vk', true);
             });
         })
             ->where('synchronized', false)
