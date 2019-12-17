@@ -291,7 +291,7 @@ class DBVKSynchronizerService
             $offers->where('vk_id', '>', 0);
         }
 
-        if ($status <> 'deleted') {
+        if ($status != 'deleted') {
             $offers->whereHas('category', function (Builder $query) {
                 $query->where('can_load_to_vk', 'yes');
             });
