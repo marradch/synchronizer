@@ -292,7 +292,7 @@ class DBVKSynchronizerService
         ->orderBy('shop_category_id');
 
         if ($status == 'added') {
-            $offers->whereRaw("status = 'added' or (status = 'edited' and vk_id = 0)");
+            $offers->whereRaw("(status = 'added' or (status = 'edited' and vk_id = 0))");
         } else {
             $offers->where('status', $status);
             $offers->where('vk_id', '>', 0);
