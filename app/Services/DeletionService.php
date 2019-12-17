@@ -153,7 +153,7 @@ class DeletionService
         $this->deleteOffers();
     }
 
-    private function deleteOffers($albumId = 0)
+    public function deleteOffers($albumId = 0, $checkInDb = false)
     {
         $token = $this->token;
         echo "Process album {$albumId}" . PHP_EOL;
@@ -184,6 +184,12 @@ class DeletionService
             $haveMore = (($response['count'] - count($response['items'])) > 0) ? true : false;
 
             foreach ($response['items'] as $item) {
+				
+				if ($checkInDb) {
+					$offer = Offer::where('vk_id', $item['id'])->first();
+					if ($offer) continue;
+				}				
+				
                 $paramsArray = [
                     'owner_id' => '-' . $this->group,
                     'item_id' => $item['id'],
