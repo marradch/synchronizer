@@ -278,6 +278,16 @@ class DBVKSynchronizerService
         }
     }
 
+	private function getCategoriesSettingsFilter()
+    {
+        $categorySettingsFilter = ['yes'];
+        if (env('SHOP_CAN_LOAD_NEW_DEFAULT', null) == 'yes') {
+            $categorySettingsFilter[] = 'default';
+        }
+
+        return $categorySettingsFilter;
+    }
+
     private function getAvailableOffersForSynchronize($status)
     {
         $categorySettingsFilter = $this->getCategoriesSettingsFilter();
