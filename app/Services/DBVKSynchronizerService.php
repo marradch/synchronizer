@@ -283,13 +283,16 @@ class DBVKSynchronizerService
     private function getAvailableOffersForSynchronize($status)
     {
         $categorySettingsFilter = $this->getCategoriesSettingsFilter();
-
-        $offers = Offer::whereHas('category', function (Builder $query) use ($categorySettingsFilter) {
-            $query->whereIn('can_load_to_vk', $categorySettingsFilter);
-        })
-        ->where('synchronized', false)
+		
+        $offers = Offer::where('synchronized', false)
         ->where('is_excluded', false)
         ->orderBy('shop_category_id');
+		
+		if($status != 'deleted') {
+			Offer::whereHas('category', function (Builder $query) use ($categorySettingsFilter) {
+				$query->whereIn('can_load_to_vk', $categorySettingsFilter);
+			})
+		}
 
         if ($status == 'added') {
             $offers->whereRaw("status = 'added' or (status = 'edited' and vk_id = 0)");
@@ -422,54 +425,6 @@ class DBVKSynchronizerService
             echo "end to edit offer {$offer->id}\n";
         }
         echo "end to edit offers\n";
-    }
-
-    private function deletePhotos()
-    {
-        $token = $this->token;
-
-        foreach ($this->getPhotosForDelete() as $photo) {
-            $paramsArray = [
-                'owner_id' => '-' . $this->group,
-                'photo_id' => $photo->vk_id
-            ];
-
-            try {
-                $response = $this->retry(function () use ($token, $paramsArray) {
-                    return $this->VKApiClient->photos()->delete($token, $paramsArray);
-                });
-
-                if (!$response) {
-                    continue;
-                }
-
-                $photo->markAsSynchronized();
-            } catch (Exception $e) {
-                Log::critical('delete photo ' . $photo->id . ':' . $e->getMessage());
-                $photo->vk_loading_error = 'delete photo ' . $photo->id . ':' . $e->getMessage();
-            }
-        }
-    }
-
-    private function getPhotosForDelete()
-    {
-        $categorySettingsFilter = $this->getCategoriesSettingsFilter();
-
-        $pictures = Picture::whereHas('offer', function (Builder $query) use ($categorySettingsFilter) {
-            $query->whereHas('category', function (Builder $query) use ($categorySettingsFilter) {
-                $query->whereIn('can_load_to_vk', $categorySettingsFilter);
-            });
-        })
-            ->where('synchronized', false)
-            ->where('status', 'deleted')
-            ->whereNotIn('vk_id', function ($query) {
-                $query->select('picture_vk_id')->from(with(new Category)->getTable())
-                    ->where('picture_vk_id', '<>', 0);
-            });
-
-        foreach ($pictures->cursor() as $picture) {
-            yield $picture;
-        }
     }
 
     private function processDeletedCategories()
