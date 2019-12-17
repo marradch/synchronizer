@@ -155,12 +155,12 @@ class DeletionService
 
     public function deleteOffers($albumId = 0, $checkInDb = false)
     {
-        $token = $this->token;
-		
 		$canLoadToVK = $this->checkAbilityOfLoading();
         if (!$canLoadToVK) {
             return;
         }
+		
+        $token = $this->token;
 		
         echo "Process album {$albumId}" . PHP_EOL;
 
