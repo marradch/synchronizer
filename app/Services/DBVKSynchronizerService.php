@@ -182,8 +182,6 @@ class DBVKSynchronizerService
 
     private function getAvailableCategoriesForSynchronize($status)
     {
-        $categorySettingsFilter = $this->getCategoriesSettingsFilter();
-
         $categories = Category::where('synchronized', false)
             ->where('status', $status);
 
@@ -194,7 +192,7 @@ class DBVKSynchronizerService
         }
 
         if ($status != 'deleted') {
-            $categories->whereIn('can_load_to_vk', $categorySettingsFilter);
+            $categories->where('can_load_to_vk', 'yes');
         }
 
         foreach ($categories->cursor() as $category) {
@@ -285,6 +283,7 @@ class DBVKSynchronizerService
         $categorySettingsFilter = $this->getCategoriesSettingsFilter();
 		
         $offers = Offer::where('synchronized', false)
+
         ->where('is_excluded', false)
         ->orderBy('shop_category_id');
 		
@@ -304,16 +303,6 @@ class DBVKSynchronizerService
         foreach ($offers->cursor() as $offer) {
             yield $offer;
         }
-    }
-
-    private function getCategoriesSettingsFilter()
-    {
-        $categorySettingsFilter = ['yes'];
-        if (env('SHOP_CAN_LOAD_NEW_DEFAULT', null) == 'yes') {
-            $categorySettingsFilter[] = 'default';
-        }
-
-        return $categorySettingsFilter;
     }
 
     // functions for update
