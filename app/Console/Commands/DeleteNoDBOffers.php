@@ -46,7 +46,7 @@ class DeleteNoDBOffers extends Command
     public function handle()
     {
         try {
-            (new DeletionService())->deleteOffers(0, true);
+            (new DeletionService())->deleteNoDBOffers(0);
         } catch (Exception $e) {
             Log::critical("Exception while delete all offers: {$e->getMessage()}");
             var_dump($e->getTrace());
