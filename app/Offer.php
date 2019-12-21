@@ -67,4 +67,27 @@ class Offer extends SynchronizedModel
         ];
     }
 
+    public function turnDeletedStatus()
+    {
+        if ($this->status != 'deleted') return;
+
+        $this->status = 'added';
+        $this->synch_with_aggregate = false;
+
+        if ($this->synchronized) {
+            $this->vk_id = 0;
+            $this->synchronized = false;
+
+            Picture::where('offer_id', $this->id)->update([
+                'vk_id' => 0,
+                'status' => 'added',
+                'synchronized' => false,
+            ]);
+        } else {
+            if ($this->vk_id) {
+                $this->synchronized = true;
+            }
+        }
+        $this->save();
+    }
 }

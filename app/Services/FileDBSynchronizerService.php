@@ -92,6 +92,9 @@ class FileDBSynchronizerService
             $category = Category::where('shop_id', $shop_id)->first();
 
             if ($category) {
+                if ($category->can_load_to_vk == 'yes') {
+                    $category->turnDeletedStatus();
+                }
                 $this->editCategory($category, $categoryNode);
             } else {
                 $this->addCategory($categoryNode);
@@ -135,12 +138,17 @@ class FileDBSynchronizerService
             if ($offer) {
                 $newShopCategoryId = $offerNode->getElementsByTagName('categoryId')[0]->nodeValue;
                 $newShopCategory = Category::where('shop_id', $newShopCategoryId)->first();
+
                 if ($offer->category->can_load_to_vk != 'yes'
-                    && !$newShopCategory->can_load_to_vk != 'yes') {
+                    && $newShopCategory->can_load_to_vk != 'yes') {
                     $offer->delete_sign = false;
                     $offer->save();
                 } else if ($offer->category->can_load_to_vk == 'yes'
                     && $newShopCategory->can_load_to_vk != 'yes') {
+                    $offer->shop_category_id = $newShopCategoryId;
+                    $offer->delete_sign = true;
+                    $offer->check_sum = $this->buildOfferCheckSum($offerNode);
+                    $offer->save();
                     // не сбиваем пометку удаления
                     // не актуализируем данные
                 } else {
@@ -152,7 +160,6 @@ class FileDBSynchronizerService
             }
             echo "Processed {$counter} offer\n";
         }
-
         $deletedOffers = Offer::where('delete_sign', true)->get();
         foreach ($deletedOffers as $offer) {
             $offer->setStatus('deleted');
@@ -245,9 +252,21 @@ class FileDBSynchronizerService
 
         // принятие решения о необходимости обновить/удалить агрегат
         if (!count($currentParticipants)) {
-            $aggregate->setStatus('deleted');
-            $aggregate->save();
+            if ($aggregate->status != 'deleted') {
+                $aggregate->setStatus('deleted');
+                $aggregate->save();
+            }
         } else {
+            if ($aggregate->status == 'deleted'
+                && $aggregate->synchronized == true) {
+                $aggregate->vk_id = 0;
+                $aggregate->save();
+                Picture::where('offer_id', $aggregate->id)->update([
+                    'vk_id' => 0,
+                    'status' => 'added',
+                    'synchronized' => false,
+                ]);
+            }
             sort($currentParticipants);
             $newCheckSum = md5(serialize($currentParticipants));
             // обновляем агрегат, если изменилось количество его участников
