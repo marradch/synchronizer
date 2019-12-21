@@ -37,11 +37,12 @@ abstract class SynchronizedModel extends Model
     {
         if ($this->status != 'deleted') return;
 
+        $this->status = 'added';
+
         if ($this->synchronized) {
-            $this->status = 'added';
             $this->vk_id = 0;
+            $this->synchronized = false;
         } else {
-            $this->status = 'added';
             if ($this->vk_id) {
                 $this->synchronized = true;
             }

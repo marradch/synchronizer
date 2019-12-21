@@ -133,8 +133,18 @@ class FileDBSynchronizerService
                 ->where('is_aggregate', false)->first();
 
             if ($offer) {
-                $offer->turnDeletedStatus();
-                $this->editOffer($offer, $offerNode);
+                $newShopCategoryId = $offerNode->getElementsByTagName('categoryId')[0]->nodeValue;
+                $newShopCategory = Category::where('shop_id', $newShopCategoryId)->first();
+                if (!$offer->category->can_load_to_vk && !$newShopCategory->can_load_to_vk) {
+                    $offer->delete_sign = false;
+                    $offer->save();
+                } else if ($offer->category->can_load_to_vk && !$newShopCategory->can_load_to_vk) {
+                    // не сбиваем пометку удаления
+                    // не актуализируем данные
+                } else {
+                    $offer->turnDeletedStatus();
+                    $this->editOffer($offer, $offerNode);
+                }
             } else {
                 $this->addOffer($offerNode);
             }

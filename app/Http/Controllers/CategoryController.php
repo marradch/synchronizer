@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Category;
+use App\Offer;
 
 class CategoryController extends Controller
 {
@@ -43,6 +43,11 @@ class CategoryController extends Controller
             $count++;
             if($count > $availableCount) continue;
             Category::find($id)->update(['can_load_to_vk' => 'yes']);
+            Offer::whereIn('status', ['added', 'edited'])
+                ->update([
+                    'status' => 'deleted',
+                    'synchronized' => false
+                ]);
             $excludeIds[] = $id;
         }
 
