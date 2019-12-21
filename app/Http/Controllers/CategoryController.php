@@ -43,11 +43,6 @@ class CategoryController extends Controller
             $count++;
             if($count > $availableCount) continue;
             Category::find($id)->update(['can_load_to_vk' => 'yes']);
-            Offer::whereIn('status', ['added', 'edited'])
-                ->update([
-                    'status' => 'deleted',
-                    'synchronized' => false
-                ]);
             $excludeIds[] = $id;
         }
 
@@ -61,6 +56,13 @@ class CategoryController extends Controller
     {
         $ids = explode('-', $ids);
         Category::whereIn('id', $ids)->update(['can_load_to_vk' => 'no']);
+        $shopIds = Category::whereIn('id', $ids)->get()->pluck('shop_id')->all();
+        Offer::whereIn('status', ['added', 'edited'])
+            ->whereIn('shop_category_id', $shopIds)
+            ->update([
+                'status' => 'deleted',
+                'synchronized' => false
+            ]);
     }
 
     public function getSelectedCount()
