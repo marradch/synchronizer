@@ -135,10 +135,12 @@ class FileDBSynchronizerService
             if ($offer) {
                 $newShopCategoryId = $offerNode->getElementsByTagName('categoryId')[0]->nodeValue;
                 $newShopCategory = Category::where('shop_id', $newShopCategoryId)->first();
-                if (!$offer->category->can_load_to_vk && !$newShopCategory->can_load_to_vk) {
+                if ($offer->category->can_load_to_vk != 'yes'
+                    && !$newShopCategory->can_load_to_vk != 'yes') {
                     $offer->delete_sign = false;
                     $offer->save();
-                } else if ($offer->category->can_load_to_vk && !$newShopCategory->can_load_to_vk) {
+                } else if ($offer->category->can_load_to_vk == 'yes'
+                    && $newShopCategory->can_load_to_vk != 'yes') {
                     // не сбиваем пометку удаления
                     // не актуализируем данные
                 } else {
