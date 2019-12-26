@@ -266,6 +266,7 @@ class FileDBSynchronizerService
                     'status' => 'added',
                     'synchronized' => false,
                 ]);
+                $isEditionNeed = true;
             }
             sort($currentParticipants);
             $newCheckSum = md5(serialize($currentParticipants));
