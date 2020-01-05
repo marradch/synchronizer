@@ -7,6 +7,7 @@ trait RetryTrait
     function retry($f, $delay = 1, $retries = 5)
     {
         try {
+            sleep(1);
             return $f();
         } catch (\Throwable $e) {
             if ($retries > 0) {
