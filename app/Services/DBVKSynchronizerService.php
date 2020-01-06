@@ -365,6 +365,7 @@ class DBVKSynchronizerService
                 });
 
                 $offer->markAsSynchronized($response['market_item_id']);
+				$offer->save();
             } catch (Exception $e) {
                 $mess = "error to load offer {$offer->id}: {$e->getMessage()}\n";
                 Log::critical($mess);
