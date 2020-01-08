@@ -284,7 +284,7 @@ class FileDBSynchronizerService
         echo "start to add aggregate products\n";
 
         $resultArray = DB::table('offers as of1')
-            ->select('of1.*', 'of2.id as add_id', 'of2.params as add_params', 'of2.vendor_code as vendor_code')
+            ->select('of1.*', 'of2.id as add_id', 'of2.params as add_params', 'of2.vendor_code as add_vendor_code')
             ->join('offers as of2', function ($join) {
                 $join->on('of2.vendor_code', 'like', DB::raw('concat(of1.vendor_code, \'%\')'));
                 $join->on('of1.id', '<>', 'of2.id');
