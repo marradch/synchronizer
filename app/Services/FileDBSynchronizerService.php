@@ -284,7 +284,7 @@ class FileDBSynchronizerService
         echo "start to add aggregate products\n";
 
         $resultArray = DB::table('offers as of1')
-            ->select('of1.*', 'of2.id as add_id', 'of2.params as add_params')
+            ->select('of1.*', 'of2.id as add_id', 'of2.params as add_params', 'of2.vendor_code as vendor_code')
             ->join('offers as of2', function ($join) {
                 $join->on('of2.vendor_code', 'like', DB::raw('concat(of1.vendor_code, \'%\')'));
                 $join->on('of1.id', '<>', 'of2.id');
@@ -304,9 +304,7 @@ class FileDBSynchronizerService
         foreach ($resultArray as $resultItem) {
             if ($resultItemPrev && $resultItem->id != $resultItemPrev->id) {
 
-                if ($skip) {
-                    Log::warning("Can't create aggregate for {$resultItemPrev->id} because size is absent");
-                } else {
+                if (!$skip) {
                     // формирование нового агрегата на основе циклично подготовленных данных
                     $this->fillAggregate($resultItemPrev, $currentSizes, $currentParticipants);
                 }
@@ -330,6 +328,12 @@ class FileDBSynchronizerService
                     print_r($paramsArray);
                 }
             }
+			
+			;
+
+			if (strripos('0123456789', $resultItem->add_vedor_code[strlen($resultItem->vedor_code)]) !== false) {
+				$skip = true;
+			}
 
             if (!$skip) {
                 // записываем в подготовительные данные все присоединенные результаты
