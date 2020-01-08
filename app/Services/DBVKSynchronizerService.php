@@ -382,18 +382,20 @@ class DBVKSynchronizerService
                 'item_id' => $offer->vk_id,
             ];
 
-            $paramsArray['album_ids'] = $offer->oldcategory->vk_id;
+			if ($offer->oldcategory) {
+				$paramsArray['album_ids'] = $offer->oldcategory->vk_id;
 
-            try {
-                $this->retry(function () use ($token, $paramsArray) {
-                    return $this->VKApiClient->market()->removeFromAlbum($token, $paramsArray);
-                });
-            } catch (Exception $e) {
-                $mess = "error to remove to album for offer {$offer->id}: {$e->getMessage()}\n";
-                Log::critical($mess);
-                $offer->vk_loading_error .= $mess;
-                echo $mess;
-            }
+				try {
+					$this->retry(function () use ($token, $paramsArray) {
+						return $this->VKApiClient->market()->removeFromAlbum($token, $paramsArray);
+					});
+				} catch (Exception $e) {
+					$mess = "error to remove to album for offer {$offer->id}: {$e->getMessage()}\n";
+					Log::critical($mess);
+					$offer->vk_loading_error .= $mess;
+					echo $mess;
+				}
+			}            
 
             $paramsArray['album_ids'] = $offer->category->vk_id;
 
