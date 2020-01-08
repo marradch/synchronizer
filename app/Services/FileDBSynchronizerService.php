@@ -362,6 +362,7 @@ class FileDBSynchronizerService
         }
         $offer->shop_id = 0;
         $offer->shop_category_id = $baseItem->shop_category_id;
+		$offer->shop_old_category_id = $baseItem->shop_old_category_id;
         $offer->name = $baseItem->name;
         $offer->price = $baseItem->price;
         if (!$aggregate) {
