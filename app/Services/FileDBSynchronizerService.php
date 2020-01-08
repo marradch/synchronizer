@@ -331,7 +331,7 @@ class FileDBSynchronizerService
 			
 			;
 
-			if (strripos('0123456789', $resultItem->add_vedor_code[strlen($resultItem->vedor_code)]) !== false) {
+			if (strripos('0123456789', $resultItem->add_vendor_code[strlen($resultItem->vendor_code)]) !== false) {
 				$skip = true;
 			}
 
