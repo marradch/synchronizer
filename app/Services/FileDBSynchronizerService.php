@@ -22,13 +22,13 @@ class FileDBSynchronizerService
 
     public function processFile()
     {
-        $fileName = $this->downloadAndExtract();
-        echo "Start import file {$fileName}\n";
-        $this->initiateDOM($fileName);
-        $this->processCategoriesNodes();
-        $this->processOffersNodes();
+        //$fileName = $this->downloadAndExtract();
+        //echo "Start import file {$fileName}\n";
+        //$this->initiateDOM($fileName);
+        //$this->processCategoriesNodes();
+        //$this->processOffersNodes();
         $this->processAggregateProducts();
-        echo "End import file {$fileName}\n";
+        //echo "End import file {$fileName}\n";
     }
 
     private function downloadAndExtract()
@@ -198,7 +198,7 @@ class FileDBSynchronizerService
     private function processAggregateProducts()
     {
         $this->addAggregateProducts();
-        $this->modifyAggregateProducts();
+        //$this->modifyAggregateProducts();
     }
 
     private function modifyAggregateProducts()
@@ -302,7 +302,7 @@ class FileDBSynchronizerService
         $skip = false;
 
         foreach ($resultArray as $resultItem) {
-            if ($resultItemPrev && $resultItem->id != $resultItemPrev->id) {
+            if ($resultItemPrev && $resultItem->id != $resultItemPrev->id && count($currentParticipants) > 1) {
 
                 if (!$skip) {
                     // формирование нового агрегата на основе циклично подготовленных данных
@@ -327,26 +327,22 @@ class FileDBSynchronizerService
                     echo $resultItem->id . PHP_EOL;
                     print_r($paramsArray);
                 }
-            }
-			
-			;
+            }								
 
-			if (strripos('0123456789', $resultItem->add_vendor_code[strlen($resultItem->vendor_code)]) !== false) {
-				$skip = true;
-			}
-
-            if (!$skip) {
-                // записываем в подготовительные данные все присоединенные результаты
-                $paramsArray = unserialize($resultItem->add_params);
-                if (!empty($paramsArray['Размер'])) {
-                    $currentSizes[] = $paramsArray['Размер'];
-                }
-                $currentParticipants[] = $resultItem->add_id;
+            if (!$skip) {				
+				if (strripos('0123456789', $resultItem->add_vendor_code[strlen($resultItem->vendor_code)]) === false) {
+					// записываем в подготовительные данные все присоединенные результаты
+					$paramsArray = unserialize($resultItem->add_params);
+					if (!empty($paramsArray['Размер'])) {
+						$currentSizes[] = $paramsArray['Размер'];
+						$currentParticipants[] = $resultItem->add_id;
+					}
+				}								                                
             }
 
             $resultItemPrev = $resultItem;
         }
-        if (!$skip && $resultItemPrev) {
+        if (!$skip && $resultItemPrev && count($currentParticipants) > 1) {
             $this->fillAggregate($resultItemPrev, $currentSizes, $currentParticipants);
         }
         echo "end to add aggregate products\n";
