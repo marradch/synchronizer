@@ -22,13 +22,13 @@ class FileDBSynchronizerService
 
     public function processFile()
     {
-        //$fileName = $this->downloadAndExtract();
-        //echo "Start import file {$fileName}\n";
-        //$this->initiateDOM($fileName);
-        //$this->processCategoriesNodes();
-        //$this->processOffersNodes();
+        $fileName = $this->downloadAndExtract();
+        echo "Start import file {$fileName}\n";
+        $this->initiateDOM($fileName);
+        $this->processCategoriesNodes();
+        $this->processOffersNodes();
         $this->processAggregateProducts();
-        //echo "End import file {$fileName}\n";
+        echo "End import file {$fileName}\n";
     }
 
     private function downloadAndExtract()
@@ -198,7 +198,7 @@ class FileDBSynchronizerService
     private function processAggregateProducts()
     {
         $this->addAggregateProducts();
-        //$this->modifyAggregateProducts();
+        $this->modifyAggregateProducts();
     }
 
     private function modifyAggregateProducts()
