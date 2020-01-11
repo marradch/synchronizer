@@ -45,6 +45,8 @@ class DBVKSynchronizerService
         $this->processDeletedCategories();
         $this->processDeletedOffers();
 
+        $this->fillGapsInOverflowAlbums();
+
         echo "end loading to VK\n";
     }
 
@@ -283,11 +285,11 @@ class DBVKSynchronizerService
         $offers = Offer::where('synchronized', false)
         ->where('is_excluded', false)
         ->orderBy('shop_category_id');
-		
+
 		if($status != 'deleted') {
 			$offers->whereHas('category', function (Builder $query) {
 				$query->where('can_load_to_vk', 'yes');
-			});        
+			});
 		}
 
         if ($status == 'added') {
@@ -395,7 +397,7 @@ class DBVKSynchronizerService
 					$offer->vk_loading_error .= $mess;
 					echo $mess;
 				}
-			}            
+			}
 
             $paramsArray['album_ids'] = $offer->category->vk_id;
 
@@ -490,5 +492,108 @@ class DBVKSynchronizerService
         }
 
         echo "end to delete offers\n";
+    }
+
+    function fillGapsInOverflowAlbums() {
+        echo "start to fill gaps in overflow albums\n";
+        $token = $this->token;
+
+        $haveMore = true;
+        $offset = 0;
+
+        while ($haveMore) {
+
+            $paramsArray = [
+                'owner_id' => '-' . $this->group,
+                'album_id' => 0,
+                'count' => 200,
+                'extended' => 1,
+                'offset' => $offset,
+            ];
+
+            try {
+                $response = $this->retry(function () use ($token, $paramsArray) {
+                    return $this->VKApiClient->market()->get($token, $paramsArray);
+                });
+            } catch (Exception $e) {
+                $mes = 'can\'t get offers without album: ' . $e->getMessage();
+                Log::critical($mes);
+                echo $mes;
+
+                $haveMore = false;
+                continue;
+            }
+
+            $offset += 200;
+            $haveMore = (($response['count'] - $offset) > 0) ? true : false;
+
+            foreach ($response['items'] as $item) {
+
+                echo "Process item {$item['id']}" . PHP_EOL;
+                if (count($item['albums_ids'])) {
+                    continue;
+                }
+
+                $offer = Offer::where('vk_id', $item['id'])->first();
+                if (!$offer) {
+                    continue;
+                }
+
+                if (!($offer->category
+                    && $offer->category->vk_id
+                    && $offer->category->status != 'deleted'
+                    && $offer->category->synchronized)) {
+                    continue;
+                }
+
+                $paramsArray = [
+                    'owner_id' => '-' . $this->group,
+                    'album_ids' => $offer->category->vk_id,
+                ];
+
+                try {
+                    $response = $this->retry(function () use ($token, $paramsArray) {
+                        return $this->VKApiClient->market()->getAlbumById($token, $paramsArray);
+                    });
+                } catch (Exception $e) {
+                    $mess = 'can\'t get data for album ' . $offer->category->vk_id . ': ' . $e->getMessage();
+                    $offer->vk_loading_error .= $mess;
+                    $offer->save();
+                    Log::critical($mess);
+                    echo $mess;
+
+                    continue;
+                }
+
+                if (empty($response['count'])) {
+                    continue;
+                }
+
+                if ($response['items'][0]['count'] >= 1000) {
+                    continue;
+                }
+
+                $paramsArray = [
+                    'owner_id'  => '-' . $this->group,
+                    'item_id'   => $offer->vk_id,
+                    'album_ids' => $offer->category->vk_id
+                ];
+
+                try {
+                    $this->retry(function () use ($token, $paramsArray) {
+                        return $this->VKApiClient->market()->addToAlbum($token, $paramsArray);
+                    });
+                    echo "success process item {$item['id']}" . PHP_EOL;
+                } catch (Exception $e) {
+                    $mess = "error add to album for offer {$offer->id}: {$e->getMessage()}\n";
+                    $offer->vk_loading_error .= $mess;
+                    $offer->save();
+                    Log::critical($mess);
+                    echo $mess;
+                }
+            }
+        }
+
+        echo "end to fill gaps in overflow albums\n";
     }
 }
