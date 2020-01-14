@@ -20,6 +20,8 @@ class FileDBSynchronizerService
     /** @var DOMDocument $dom */
     private $dom;
 
+    const PROMO_TEXT = 'Зарегистрируйтесь на сайте <a href="https://litemoda.com/">litemoda.com</a> и получите скидку';
+
     public function processFile()
     {
         $fileName = $this->downloadAndExtract();
@@ -327,9 +329,9 @@ class FileDBSynchronizerService
                     echo $resultItem->id . PHP_EOL;
                     print_r($paramsArray);
                 }
-            }								
+            }
 
-            if (!$skip) {				
+            if (!$skip) {
 				if (strripos('0123456789', $resultItem->add_vendor_code[strlen($resultItem->vendor_code)]) === false) {
 					// записываем в подготовительные данные все присоединенные результаты
 					$paramsArray = unserialize($resultItem->add_params);
@@ -337,7 +339,7 @@ class FileDBSynchronizerService
 						$currentSizes[] = $paramsArray['Размер'];
 						$currentParticipants[] = $resultItem->add_id;
 					}
-				}								                                
+				}
             }
 
             $resultItemPrev = $resultItem;
@@ -392,7 +394,7 @@ class FileDBSynchronizerService
         }
         $fullDescription .= $paramsText;
         $fullDescription .= PHP_EOL . $offer->origin_description . PHP_EOL;
-        $fullDescription .= PHP_EOL . 'Пожалуйста, поделитесь ссылкой с друзьями';
+        $fullDescription .= PHP_EOL . self::PROMO_TEXT;
         $offer->description = $fullDescription;
         sort($currentParticipants);
         $offer->check_sum = md5(serialize($currentParticipants));
@@ -548,7 +550,7 @@ class FileDBSynchronizerService
             }
         }
 
-        $fullDescription .= PHP_EOL . 'Пожалуйста, поделитесь ссылкой с друзьями';
+        $fullDescription .= PHP_EOL . self::PROMO_TEXT;
 
         $offer->description = $fullDescription;
 

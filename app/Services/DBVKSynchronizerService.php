@@ -362,12 +362,9 @@ class DBVKSynchronizerService
             ];
 
             try {
-                $response = $this->retry(function () use ($token, $paramsArray) {
+                $this->retry(function () use ($token, $paramsArray) {
                     return $this->VKApiClient->market()->edit($token, $paramsArray);
                 });
-
-                $offer->markAsSynchronized($response['market_item_id']);
-				$offer->save();
             } catch (Exception $e) {
                 $mess = "error to load offer {$offer->id}: {$e->getMessage()}\n";
                 Log::critical($mess);
@@ -375,43 +372,43 @@ class DBVKSynchronizerService
                 echo $mess;
             }
 
-            if ($offer->shop_category_id == $offer->shop_old_category_id || !$offer->shop_old_category_id) {
-                continue;
+            if (!($offer->shop_category_id == $offer->shop_old_category_id || !$offer->shop_old_category_id)) {
+
+                $paramsArray = [
+                    'owner_id' => '-' . $this->group,
+                    'item_id' => $offer->vk_id,
+                ];
+
+                if ($offer->oldcategory) {
+                    $paramsArray['album_ids'] = $offer->oldcategory->vk_id;
+
+                    try {
+                        $this->retry(function () use ($token, $paramsArray) {
+                            return $this->VKApiClient->market()->removeFromAlbum($token, $paramsArray);
+                        });
+                    } catch (Exception $e) {
+                        $mess = "error to remove to album for offer {$offer->id}: {$e->getMessage()}\n";
+                        Log::critical($mess);
+                        $offer->vk_loading_error .= $mess;
+                        echo $mess;
+                    }
+                }
+
+                $paramsArray['album_ids'] = $offer->category->vk_id;
+
+                try {
+                    $this->retry(function () use ($token, $paramsArray) {
+                        return $this->VKApiClient->market()->addToAlbum($token, $paramsArray);
+                    });
+                } catch (Exception $e) {
+                    $mess = "add to album for offer {$offer->id}: {$e->getMessage()}\n";
+                    $offer->vk_loading_error .= $mess;
+                    Log::critical($mess);
+                    echo $mess;
+                }
             }
 
-            $paramsArray = [
-                'owner_id' => '-' . $this->group,
-                'item_id' => $offer->vk_id,
-            ];
-
-			if ($offer->oldcategory) {
-				$paramsArray['album_ids'] = $offer->oldcategory->vk_id;
-
-				try {
-					$this->retry(function () use ($token, $paramsArray) {
-						return $this->VKApiClient->market()->removeFromAlbum($token, $paramsArray);
-					});
-				} catch (Exception $e) {
-					$mess = "error to remove to album for offer {$offer->id}: {$e->getMessage()}\n";
-					Log::critical($mess);
-					$offer->vk_loading_error .= $mess;
-					echo $mess;
-				}
-			}
-
-            $paramsArray['album_ids'] = $offer->category->vk_id;
-
-            try {
-                $this->retry(function () use ($token, $paramsArray) {
-                    return $this->VKApiClient->market()->addToAlbum($token, $paramsArray);
-                });
-            } catch (Exception $e) {
-                $mess = "add to album for offer {$offer->id}: {$e->getMessage()}\n";
-                $offer->vk_loading_error .= $mess;
-                Log::critical($mess);
-                echo $mess;
-            }
-
+            $offer->markAsSynchronized();
             $offer->save();
             echo "end to edit offer {$offer->id}\n";
         }
