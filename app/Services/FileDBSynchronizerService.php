@@ -20,7 +20,7 @@ class FileDBSynchronizerService
     /** @var DOMDocument $dom */
     private $dom;
 
-    const PROMO_TEXT = 'Зарегистрируйтесь на сайте <a href="https://litemoda.com/">litemoda.com</a> и получите скидку';
+    const PROMO_TEXT = 'Зарегистрируйтесь на сайте litemoda.com и получите скидку';
 
     public function processFile()
     {
