@@ -4432,15 +4432,16 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/mihan007/vk-php-sdk.git",
-                "reference": "43e620467e742197038ed5475a2d80d9a5c392e5"
+                "reference": "4f814d45629ca74e2a13596cc665b35dca86cced"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/mihan007/vk-php-sdk/zipball/43e620467e742197038ed5475a2d80d9a5c392e5",
-                "reference": "43e620467e742197038ed5475a2d80d9a5c392e5",
+                "url": "https://api.github.com/repos/mihan007/vk-php-sdk/zipball/4f814d45629ca74e2a13596cc665b35dca86cced",
+                "reference": "4f814d45629ca74e2a13596cc665b35dca86cced",
                 "shasum": ""
             },
             "require": {
+                "ext-json": "*",
                 "php": ">=7.1"
             },
             "require-dev": {
@@ -4465,7 +4466,7 @@
             "support": {
                 "source": "https://github.com/mihan007/vk-php-sdk/tree/http11"
             },
-            "time": "2019-11-05T09:40:48+00:00"
+            "time": "2020-01-25T11:00:04+00:00"
         },
         {
             "name": "vlucas/phpdotenv",
