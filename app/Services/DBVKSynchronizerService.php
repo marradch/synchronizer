@@ -71,7 +71,7 @@ class DBVKSynchronizerService
 
                     if (!$pictureItem->vk_id) {
                         $mess = "Category {$category->name}($category->id) hasn't the picture\n";
-                        $category->vk_loading_error .= $mess;
+                        $category->vk_loading_error = $mess;
                         Log::warning($mess);
                         echo $mess;
                     } else {
@@ -83,7 +83,7 @@ class DBVKSynchronizerService
                         $vk_id = $this->loadPictureToVK($pictureItem, true);
                         if (!$vk_id) {
                             $mess = "Category {$category->name}($category->id) hasn't the picture\n";
-                            $category->vk_loading_error .= $mess;
+                            $category->vk_loading_error = $mess;
                             Log::warning($mess);
                             echo $mess;
                         } else {
@@ -104,7 +104,7 @@ class DBVKSynchronizerService
 
             } catch (Exception $e) {
                 $mess = "error to load category {$category->shop_id}: {$e->getMessage()}\n";
-                $category->vk_loading_error .= $mess;
+                $category->vk_loading_error = $mess;
                 Log::critical($mess);
                 echo $mess;
             }
@@ -131,7 +131,7 @@ class DBVKSynchronizerService
             });
         } catch (Exception $e) {
             $mess = 'error in getMarketUploadServer: ' . $e->getMessage()."\n";
-            $picture->vk_loading_error .= $mess;
+            $picture->vk_loading_error = $mess;
             $picture->save();
             Log::critical($mess);
             echo $mess;
@@ -148,7 +148,7 @@ class DBVKSynchronizerService
             });
         } catch (Throwable $e) {
             $mess = "Picture {$picture->url}($picture->id) wasn't uploaded: {$e->getMessage()}\n";
-            $picture->vk_loading_error .= $mess;
+            $picture->vk_loading_error = $mess;
             $picture->save();
             Log::critical($mess);
             return false;
@@ -172,7 +172,7 @@ class DBVKSynchronizerService
             }
         } catch (Exception $e) {
             $mess = "error to load picture {$picture->id}: {$e->getMessage()}\n";
-            $picture->vk_loading_error .= $mess;
+            $picture->vk_loading_error = $mess;
             $picture->save();
             Log::critical($mess);
             echo $mess;
@@ -212,7 +212,7 @@ class DBVKSynchronizerService
                 $mess = "main picture for {$offer->id} is missing, skip loading\n";
                 Log::critical($mess);
                 echo $mess;
-                $offer->vk_loading_error .= $mess;
+                $offer->vk_loading_error = $mess;
                 $offer->save();
                 continue;
             }
@@ -234,7 +234,7 @@ class DBVKSynchronizerService
             } catch (Exception $e) {
                 $mess = "error to add offer {$offer->id}: {$e->getMessage()}\n";
                 Log::critical($mess);
-                $offer->vk_loading_error .= $mess;
+                $offer->vk_loading_error = $mess;
                 echo $mess;
             }
 
@@ -252,7 +252,7 @@ class DBVKSynchronizerService
                 $mess = "add to album for offer {$offer->id}: {$e->getMessage()}\n";
                 Log::critical($mess);
                 echo $mess;
-                $offer->vk_loading_error .= $mess;
+                $offer->vk_loading_error = $mess;
             }
 
             $offer->save();
@@ -328,7 +328,7 @@ class DBVKSynchronizerService
                 $category->markAsSynchronized();
             } catch (Exception $e) {
                 $mess = "error to edit category {$category->shop_id}: {$e->getMessage()}\n";
-                $category->vk_loading_error .= $mess;
+                $category->vk_loading_error = $mess;
                 Log::critical($mess);
                 echo $mess;
             }
@@ -369,7 +369,7 @@ class DBVKSynchronizerService
             } catch (Exception $e) {
                 $mess = "error to load offer {$offer->id}: {$e->getMessage()}\n";
                 Log::critical($mess);
-                $offer->vk_loading_error .= $mess;
+                $offer->vk_loading_error = $mess;
                 echo $mess;
             }
 
@@ -391,7 +391,7 @@ class DBVKSynchronizerService
             } catch (Exception $e) {
                 $mess = "error to remove to album for offer {$offer->id}: {$e->getMessage()}\n";
                 Log::critical($mess);
-                $offer->vk_loading_error .= $mess;
+                $offer->vk_loading_error = $mess;
                 echo $mess;
             }
 
@@ -403,7 +403,7 @@ class DBVKSynchronizerService
                 });
             } catch (Exception $e) {
                 $mess = "add to album for offer {$offer->id}: {$e->getMessage()}\n";
-                $offer->vk_loading_error .= $mess;
+                $offer->vk_loading_error = $mess;
                 Log::critical($mess);
                 echo $mess;
             }
@@ -486,7 +486,7 @@ class DBVKSynchronizerService
                 $category->markAsSynchronized();
             } catch (Exception $e) {
                 $mess = "delete category {$category->shop_id}: {$e->getMessage()}\n";
-                $category->vk_loading_error .= $mess;
+                $category->vk_loading_error = $mess;
                 Log::critical($mess);
                 echo $mess;
             }
@@ -526,7 +526,7 @@ class DBVKSynchronizerService
                 $offer->markAsSynchronized();
             } catch (Exception $e) {
                 $mess = "delete offer {$offer->id}: {$e->getMessage()}\n";
-                $offer->vk_loading_error .= $mess;
+                $offer->vk_loading_error = $mess;
                 Log::critical($mess);
                 echo $mess;
             }
