@@ -26,7 +26,7 @@ class DeleteAllOffersWithoutCategories extends Command
      *
      * @var string
      */
-    protected $description = 'delete all offers without album';
+    protected $description = 'delete all offers without album analyse';
 
     /**
      * Create a new command instance.

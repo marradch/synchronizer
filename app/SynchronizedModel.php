@@ -32,4 +32,21 @@ abstract class SynchronizedModel extends Model
         $this->synchronized = false;
         $this->delete_sign = false;
     }
+
+    public function turnDeletedStatus()
+    {
+        if ($this->status != 'deleted') return;
+
+        $this->status = 'added';
+
+        if ($this->synchronized) {
+            $this->vk_id = 0;
+            $this->synchronized = false;
+        } else {
+            if ($this->vk_id) {
+                $this->synchronized = true;
+            }
+        }
+        $this->save();
+    }
 }

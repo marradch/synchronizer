@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Category;
+use App\Offer;
 
 class CategoryController extends Controller
 {
@@ -55,7 +55,19 @@ class CategoryController extends Controller
     public function setLoadToVKNo($ids)
     {
         $ids = explode('-', $ids);
-        Category::whereIn('id', $ids)->update(['can_load_to_vk' => 'no']);
+        Category::whereIn('id', $ids)->update([
+            'can_load_to_vk' => 'no',
+            'status' => 'deleted',
+            'synchronized' => false
+        ]);
+        $shopIds = Category::whereIn('id', $ids)->get()->pluck('shop_id')->all();
+
+        Offer::whereIn('status', ['added', 'edited'])
+            ->whereIn('shop_category_id', $shopIds)
+            ->update([
+                'status' => 'deleted',
+                'synchronized' => false
+            ]);
     }
 
     public function getSelectedCount()

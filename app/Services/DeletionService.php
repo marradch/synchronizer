@@ -10,6 +10,8 @@ use App\Task;
 use App\Album;
 use Illuminate\Support\Facades\Log;
 use App\Category;
+use App\Offer;
+use Illuminate\Database\Eloquent\Builder;
 
 class DeletionService
 {
@@ -151,13 +153,18 @@ class DeletionService
         $this->deleteOffers();
     }
 
-    private function deleteOffers($albumId = 0)
+    public function deleteOffers($albumId = 0, $checkInDb = false)
     {
+		$canLoadToVK = $this->checkAbilityOfLoading();
+        if (!$canLoadToVK) {
+            return;
+        }
+		
         $token = $this->token;
+		
         echo "Process album {$albumId}" . PHP_EOL;
 
-        $haveMore = true;
-
+        $haveMore = true;		
         while ($haveMore) {
 
             $paramsArray = [
@@ -182,6 +189,16 @@ class DeletionService
             $haveMore = (($response['count'] - count($response['items'])) > 0) ? true : false;
 
             foreach ($response['items'] as $item) {
+				
+				echo "Process item {$item['id']}" . PHP_EOL;
+				
+				if ($checkInDb) {
+					$offer = Offer::where('vk_id', $item['id'])->first();
+					if ($offer) continue;
+				}	
+
+				echo "Start to delete item {$item['id']}" . PHP_EOL;
+				
                 $paramsArray = [
                     'owner_id' => '-' . $this->group,
                     'item_id' => $item['id'],
@@ -232,6 +249,129 @@ class DeletionService
             $existed = Category::where('vk_id', $album['id'])->first();
             if (!$existed) {
                 echo "Album {$album['id']} - ({$album['title']}) absent in database\n";
+            }
+        }
+    }
+	
+	public function removeOffersFromDisabledCategories()
+	{
+		$canLoadToVK = $this->checkAbilityOfLoading();
+        if (!$canLoadToVK) {
+            return;
+        }
+		
+		$token = $this->token;
+
+        echo "start to delete offers\n";
+
+        foreach ($this->getWrongOffersForDelete() as $offer) {
+            echo "start to delete offer {$offer->id}\n";
+            if (!$offer->vk_id) {
+                continue;
+            }
+            try {
+                $paramsArray = [
+                    'owner_id' => '-' . $this->group,
+                    'item_id' => $offer->vk_id,
+                ];
+
+                $response = $this->retry(function () use ($token, $paramsArray) {
+                    return $this->VKApiClient->market()->delete($token, $paramsArray);
+                });
+            } catch (Exception $e) {
+                $mess = "delete offer {$offer->id}: {$e->getMessage()}\n";
+                $offer->vk_loading_error .= $mess;
+                Log::critical($mess);
+                echo $mess;
+            }
+
+            $offer->save();
+            echo "end to delete offer {$offer->id}\n";
+        }
+
+        echo "end to delete offers\n";
+	}
+	
+	private function getWrongOffersForDelete()
+    {
+        $offers = Offer::where('is_excluded', false)
+        ->orderBy('shop_category_id');
+		
+		$offers->whereHas('category', function (Builder $query) {
+			$query->where('can_load_to_vk', 'default');
+		});        		
+        
+		$offers->where('status', 'added');
+		$offers->where('vk_id', '>', 0);
+        
+
+        foreach ($offers->cursor() as $offer) {
+            yield $offer;
+        }
+    }
+	
+	public function deleteNoDBOffers($albumId = 0)
+    {
+		$canLoadToVK = $this->checkAbilityOfLoading();
+        if (!$canLoadToVK) {
+            return;
+        }
+		
+        $token = $this->token;
+		
+        echo "Process album {$albumId}" . PHP_EOL;
+
+        $haveMore = true;
+		$offset = 0;
+        while ($haveMore) {
+
+            $paramsArray = [
+                'owner_id' => '-' . $this->group,
+                'album_id' => $albumId,
+                'count' => 200,
+				'offset' => $offset,
+            ];
+
+            try {
+                $response = $this->retry(function () use ($token, $paramsArray) {
+                    return $this->VKApiClient->market()->get($token, $paramsArray);
+                });
+            } catch (Exception $e) {
+                $mes = 'can\'t delete all offers for album ' . $albumId . ': ' . $e->getMessage();
+                Log::critical($mes);
+                echo $mes;
+
+                $haveMore = false;
+                continue;
+            }
+
+			$offset += 200;
+            $haveMore = (($response['count'] - $offset) > 0) ? true : false;
+			
+
+            foreach ($response['items'] as $item) {
+				
+				echo "Process item {$item['id']}" . PHP_EOL;
+								
+				$offer = Offer::where('vk_id', $item['id'])->first();
+				if ($offer) continue;				
+
+				echo "Start to delete item {$item['id']}" . PHP_EOL;
+				
+                $paramsArray = [
+                    'owner_id' => '-' . $this->group,
+                    'item_id' => $item['id'],
+                ];
+
+                try {
+                    $this->retry(function () use ($token, $paramsArray) {
+                        return $this->VKApiClient->market()->delete($token, $paramsArray);
+                    });
+                } catch (Exception $e) {
+                    $mes = 'can\'t delete all offers for album ' . $albumId . ': ' . $e->getMessage();
+                    Log::critical($mes);
+                    echo $mes;
+                }
             }
         }
     }

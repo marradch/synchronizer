@@ -4,11 +4,11 @@ namespace App\Console\Commands;
 
 use Exception;
 use Illuminate\Console\Command;
-use App\Services\FileDBSynchronizerService;
+use App\Services\DeletionService;
 use Illuminate\Support\Facades\Log;
 use Illuminated\Console\WithoutOverlapping;
 
-class LoadFromFileToDb extends Command
+class DeleteOffersFromWrongCategories extends Command
 {
     use WithoutOverlapping;
 
@@ -19,14 +19,14 @@ class LoadFromFileToDb extends Command
      *
      * @var string
      */
-    protected $signature = 'synchronizer:load-from-file-to-db';
+    protected $signature = 'synchronizer:delete-wrong-offers';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'load categories and offers from file to DB';
+    protected $description = 'delete offers from wrong album';
 
     /**
      * Create a new command instance.
@@ -46,9 +46,10 @@ class LoadFromFileToDb extends Command
     public function handle()
     {
         try {
-            (new FileDBSynchronizerService())->processFile();
+            (new DeletionService())->removeOffersFromDisabledCategories();
         } catch (Exception $e) {
-            Log::critical("Exception while importing file: {$e->getMessage()}");
+            Log::critical("Exception while delete all offers: {$e->getMessage()}");
+            var_dump($e->getTrace());
             return 1;
         }
 
