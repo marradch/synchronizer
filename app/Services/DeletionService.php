@@ -59,7 +59,7 @@ class DeletionService
                         return $this->VKApiClient->market()->get($token, $paramsArray);
                     });
                 } catch (Exception $e) {
-                    $album->vk_loading_error .= PHP_EOL . $e->getMessage();
+                    $album->vk_loading_error = $e->getMessage();
 
                     $mes = 'can\'t delete all offers for album ' . $album->album_id . ': ' . $e->getMessage();
                     Log::critical($mes);
@@ -83,7 +83,7 @@ class DeletionService
                             return $this->VKApiClient->market()->delete($token, $paramsArray);
                         });
                     } catch (Exception $e) {
-                        $album->vk_loading_error .= PHP_EOL . $e->getMessage();
+                        $album->vk_loading_error = $e->getMessage();
                         $mes = 'can\'t delete all offers for album ' . $album->album_id . ': ' . $e->getMessage();
                         Log::critical($mes);
                         echo $mes;
@@ -106,7 +106,7 @@ class DeletionService
 
                         $album->is_done = true;
                     } catch (Exception $e) {
-                        $album->vk_loading_error .= PHP_EOL . $e->getMessage();
+                        $album->vk_loading_error = $e->getMessage();
                         $mes = 'can\'t delete album ' . $album->album_id . ': ' . $e->getMessage();
                         Log::critical($mes);
                         echo $mes;
