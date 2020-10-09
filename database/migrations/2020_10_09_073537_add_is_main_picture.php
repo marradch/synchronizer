@@ -17,9 +17,9 @@ class AddIsMainPicture extends Migration
      */
     public function up()
     {
-//        Schema::table('pictures', function (Blueprint $table) {
-//            $table->boolean('is_main')->default(0)->after('offer_id');
-//        });
+        Schema::table('pictures', function (Blueprint $table) {
+            $table->boolean('is_main')->default(0)->after('offer_id');
+        });
         $offers = Offer::where('is_excluded', false);
 
         $output = new ConsoleOutput();
