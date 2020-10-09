@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Traits\Loggable;
 use App\Traits\RetryTrait;
 use App\Traits\LaunchableTrait;
 use Exception;
@@ -17,6 +18,7 @@ class DBVKSynchronizerService
 {
     use RetryTrait;
     use LaunchableTrait;
+    use Loggable;
 
     protected $group;
     protected $token;
@@ -57,11 +59,9 @@ class DBVKSynchronizerService
         echo "start to add categories\n";
 
         foreach ($this->getAvailableCategoriesForSynchronize('added') as $category) {
-
             echo "start to add category {$category->id}\n";
 
             try {
-
                 $paramsArray = [
                     'owner_id' => '-' . $this->group,
                     'title' => $category->prepared_name
@@ -98,12 +98,13 @@ class DBVKSynchronizerService
                     $category->picture_vk_id = $paramsArray['photo_id'];
                 }
 
-                $response = $this->retry(function () use ($token, $paramsArray) {
-                    return $this->VKApiClient->market()->addAlbum($token, $paramsArray);
-                });
-
+                $response = $this->retry(
+                    function () use ($token, $paramsArray) {
+                        return $this->VKApiClient->market()->addAlbum($token, $paramsArray);
+                    }
+                );
+                $this->log("loadAddedCategoryToVK addAlbum:", $response);
                 $category->markAsSynchronized($response['market_album_id']);
-
             } catch (Exception $e) {
                 $mess = "error to load category {$category->shop_id}: {$e->getMessage()}\n";
                 $category->vk_loading_error = $mess;
@@ -128,11 +129,14 @@ class DBVKSynchronizerService
                 'group_id' => $this->group,
                 'main_photo' => 1
             ];
-            $result = $this->retry(function () use ($token, $paramsArray) {
-                return $this->VKApiClient->photos()->getMarketUploadServer($token, $paramsArray);
-            });
+            $result = $this->retry(
+                function () use ($token, $paramsArray) {
+                    return $this->VKApiClient->photos()->getMarketUploadServer($token, $paramsArray);
+                }
+            );
+            $this->log("loadPictureToVK getMarketUploadServer:", $result);
         } catch (Exception $e) {
-            $mess = 'error in getMarketUploadServer: ' . $e->getMessage()."\n";
+            $mess = 'error in getMarketUploadServer: ' . $e->getMessage() . "\n";
             $picture->vk_loading_error = $mess;
             $picture->save();
             Log::critical($mess);
@@ -145,9 +149,12 @@ class DBVKSynchronizerService
 
         try {
             $local_path = $picture->local_path;
-            $resultArray = $this->retry(function () use ($uploadUrl, $local_path) {
-                return $this->VKApiClient->getRequest()->upload($uploadUrl, 'photo', $local_path);
-            });
+            $resultArray = $this->retry(
+                function () use ($uploadUrl, $local_path) {
+                    return $this->VKApiClient->getRequest()->upload($uploadUrl, 'photo', $local_path);
+                }
+            );
+            $this->log("loadPictureToVK upload:", $resultArray);
         } catch (Throwable $e) {
             $mess = "Picture {$picture->url}($picture->id) wasn't uploaded: {$e->getMessage()}\n";
             $picture->vk_loading_error = $mess;
@@ -158,10 +165,12 @@ class DBVKSynchronizerService
 
         try {
             $resultArray['group_id'] = $this->group;
-            $result = $this->retry(function () use ($token, $resultArray) {
-                return $this->VKApiClient->photos()->saveMarketPhoto($token, $resultArray);
-            });
-
+            $result = $this->retry(
+                function () use ($token, $resultArray) {
+                    return $this->VKApiClient->photos()->saveMarketPhoto($token, $resultArray);
+                }
+            );
+            $this->log("loadPictureToVK saveMarketPhoto:", $result);
             echo "end load picture {$picture->id}\n";
 
             if (!$duplicate) {
@@ -232,9 +241,12 @@ class DBVKSynchronizerService
             ];
 
             try {
-                $response = $this->retry(function () use ($token, $paramsArray) {
-                    return $this->VKApiClient->market()->add($token, $paramsArray);
-                });
+                $response = $this->retry(
+                    function () use ($token, $paramsArray) {
+                        return $this->VKApiClient->market()->add($token, $paramsArray);
+                    }
+                );
+                $this->log("loadAddedOffersToVK add:", $response);
                 $offer->markAsSynchronized($response['market_item_id']);
             } catch (Exception $e) {
                 $mess = "error to add offer {$offer->id}: {$e->getMessage()}\n";
@@ -250,9 +262,12 @@ class DBVKSynchronizerService
             ];
 
             try {
-                $this->retry(function () use ($token, $paramsArray) {
-                    return $this->VKApiClient->market()->addToAlbum($token, $paramsArray);
-                });
+                $response = $this->retry(
+                    function () use ($token, $paramsArray) {
+                        return $this->VKApiClient->market()->addToAlbum($token, $paramsArray);
+                    }
+                );
+                $this->log("loadAddedOffersToVK addToAlbum:", $response);
             } catch (Exception $e) {
                 $mess = "add to album for offer {$offer->id}: {$e->getMessage()}\n";
                 Log::critical($mess);
@@ -283,14 +298,17 @@ class DBVKSynchronizerService
     private function getAvailableOffersForSynchronize($status)
     {
         $offers = Offer::where('synchronized', false)
-        ->where('is_excluded', false)
-        ->orderBy('shop_category_id');
+            ->where('is_excluded', false)
+            ->orderBy('shop_category_id');
 
-		if($status != 'deleted') {
-			$offers->whereHas('category', function (Builder $query) {
-				$query->where('can_load_to_vk', 'yes');
-			});
-		}
+        if ($status != 'deleted') {
+            $offers->whereHas(
+                'category',
+                function (Builder $query) {
+                    $query->where('can_load_to_vk', 'yes');
+                }
+            );
+        }
 
         if ($status == 'added') {
             $offers->whereRaw("(status = 'added' or (status = 'edited' and vk_id = 0))");
@@ -322,10 +340,12 @@ class DBVKSynchronizerService
                     'title' => $category->prepared_name
                 ];
 
-                $response = $this->retry(function () use ($token, $paramsArray) {
-                    return $this->VKApiClient->market()->editAlbum($token, $paramsArray);
-                });
-
+                $response = $this->retry(
+                    function () use ($token, $paramsArray) {
+                        return $this->VKApiClient->market()->editAlbum($token, $paramsArray);
+                    }
+                );
+                $this->log("processEditedCategories editAlbum:", $response);
                 $category->markAsSynchronized();
             } catch (Exception $e) {
                 $mess = "error to edit category {$category->shop_id}: {$e->getMessage()}\n";
@@ -362,9 +382,12 @@ class DBVKSynchronizerService
             ];
 
             try {
-                $this->retry(function () use ($token, $paramsArray) {
-                    return $this->VKApiClient->market()->edit($token, $paramsArray);
-                });
+                $response = $this->retry(
+                    function () use ($token, $paramsArray) {
+                        return $this->VKApiClient->market()->edit($token, $paramsArray);
+                    }
+                );
+                $this->log("processEditedOffers edit:", $response);
             } catch (Exception $e) {
                 $mess = "error to load offer {$offer->id}: {$e->getMessage()}\n";
                 Log::critical($mess);
@@ -373,7 +396,6 @@ class DBVKSynchronizerService
             }
 
             if (!($offer->shop_category_id == $offer->shop_old_category_id || !$offer->shop_old_category_id)) {
-
                 $paramsArray = [
                     'owner_id' => '-' . $this->group,
                     'item_id' => $offer->vk_id,
@@ -383,13 +405,16 @@ class DBVKSynchronizerService
                     $paramsArray['album_ids'] = $offer->oldcategory->vk_id;
 
                     try {
-                        $this->retry(function () use ($token, $paramsArray) {
-                            return $this->VKApiClient->market()->removeFromAlbum($token, $paramsArray);
-                        });
+                        $response = $this->retry(
+                            function () use ($token, $paramsArray) {
+                                return $this->VKApiClient->market()->removeFromAlbum($token, $paramsArray);
+                            }
+                        );
+                        $this->log("processEditedOffers removeFromAlbum:", $response);
                     } catch (Exception $e) {
                         $mess = "error to remove to album for offer {$offer->id}: {$e->getMessage()}\n";
                         Log::critical($mess);
-                $offer->vk_loading_error = $mess;
+                        $offer->vk_loading_error = $mess;
                         echo $mess;
                     }
                 }
@@ -397,12 +422,15 @@ class DBVKSynchronizerService
                 $paramsArray['album_ids'] = $offer->category->vk_id;
 
                 try {
-                    $this->retry(function () use ($token, $paramsArray) {
-                        return $this->VKApiClient->market()->addToAlbum($token, $paramsArray);
-                    });
+                    $response = $this->retry(
+                        function () use ($token, $paramsArray) {
+                            return $this->VKApiClient->market()->addToAlbum($token, $paramsArray);
+                        }
+                    );
+                    $this->log("processEditedOffers addToAlbum:", $response);
                 } catch (Exception $e) {
                     $mess = "add to album for offer {$offer->id}: {$e->getMessage()}\n";
-                $offer->vk_loading_error = $mess;
+                    $offer->vk_loading_error = $mess;
                     Log::critical($mess);
                     echo $mess;
                 }
@@ -432,10 +460,13 @@ class DBVKSynchronizerService
                     'album_id' => $category->vk_id,
                 ];
 
-                $response = $this->retry(function () use ($token, $paramsArray) {
-                    return $this->VKApiClient->market()->deleteAlbum($token, $paramsArray);
-                });
+                $response = $this->retry(
+                    function () use ($token, $paramsArray) {
+                        return $this->VKApiClient->market()->deleteAlbum($token, $paramsArray);
+                    }
+                );
 
+                $this->log("processDeletedCategories deleteAlbum:", $response);
                 $category->markAsSynchronized();
             } catch (Exception $e) {
                 $mess = "delete category {$category->shop_id}: {$e->getMessage()}\n";
@@ -472,10 +503,13 @@ class DBVKSynchronizerService
                     'item_id' => $offer->vk_id,
                 ];
 
-                $response = $this->retry(function () use ($token, $paramsArray) {
-                    return $this->VKApiClient->market()->delete($token, $paramsArray);
-                });
+                $response = $this->retry(
+                    function () use ($token, $paramsArray) {
+                        return $this->VKApiClient->market()->delete($token, $paramsArray);
+                    }
+                );
 
+                $this->log("processDeletedOffers delete:", $response);
                 $offer->markAsSynchronized();
             } catch (Exception $e) {
                 $mess = "delete offer {$offer->id}: {$e->getMessage()}\n";
@@ -491,7 +525,8 @@ class DBVKSynchronizerService
         echo "end to delete offers\n";
     }
 
-    function fillGapsInOverflowAlbums() {
+    function fillGapsInOverflowAlbums()
+    {
         echo "start to fill gaps in overflow albums\n";
         $token = $this->token;
 
@@ -499,7 +534,6 @@ class DBVKSynchronizerService
         $offset = 0;
 
         while ($haveMore) {
-
             $paramsArray = [
                 'owner_id' => '-' . $this->group,
                 'album_id' => 0,
@@ -509,9 +543,12 @@ class DBVKSynchronizerService
             ];
 
             try {
-                $response = $this->retry(function () use ($token, $paramsArray) {
-                    return $this->VKApiClient->market()->get($token, $paramsArray);
-                });
+                $response = $this->retry(
+                    function () use ($token, $paramsArray) {
+                        return $this->VKApiClient->market()->get($token, $paramsArray);
+                    }
+                );
+                $this->log("fillGapsInOverflowAlbums get:", $response);
             } catch (Exception $e) {
                 $mes = 'can\'t get offers without album: ' . $e->getMessage();
                 Log::critical($mes);
@@ -525,7 +562,6 @@ class DBVKSynchronizerService
             $haveMore = (($response['count'] - $offset) > 0) ? true : false;
 
             foreach ($response['items'] as $item) {
-
                 echo "Process item {$item['id']}" . PHP_EOL;
                 if (count($item['albums_ids'])) {
                     continue;
@@ -549,9 +585,12 @@ class DBVKSynchronizerService
                 ];
 
                 try {
-                    $response = $this->retry(function () use ($token, $paramsArray) {
-                        return $this->VKApiClient->market()->getAlbumById($token, $paramsArray);
-                    });
+                    $response = $this->retry(
+                        function () use ($token, $paramsArray) {
+                            return $this->VKApiClient->market()->getAlbumById($token, $paramsArray);
+                        }
+                    );
+                    $this->log("fillGapsInOverflowAlbums getAlbumById:", $response);
                 } catch (Exception $e) {
                     $mess = 'can\'t get data for album ' . $offer->category->vk_id . ': ' . $e->getMessage();
                     $offer->vk_loading_error .= $mess;
@@ -571,15 +610,18 @@ class DBVKSynchronizerService
                 }
 
                 $paramsArray = [
-                    'owner_id'  => '-' . $this->group,
-                    'item_id'   => $offer->vk_id,
+                    'owner_id' => '-' . $this->group,
+                    'item_id' => $offer->vk_id,
                     'album_ids' => $offer->category->vk_id
                 ];
 
                 try {
-                    $this->retry(function () use ($token, $paramsArray) {
-                        return $this->VKApiClient->market()->addToAlbum($token, $paramsArray);
-                    });
+                    $response = $this->retry(
+                        function () use ($token, $paramsArray) {
+                            return $this->VKApiClient->market()->addToAlbum($token, $paramsArray);
+                        }
+                    );
+                    $this->log("fillGapsInOverflowAlbums addToAlbum:", $response);
                     echo "success process item {$item['id']}" . PHP_EOL;
                 } catch (Exception $e) {
                     $mess = "error add to album for offer {$offer->id}: {$e->getMessage()}\n";
