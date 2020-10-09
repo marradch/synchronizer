@@ -10,6 +10,7 @@ trait Loggable
             return false;
         }
         echo date('Y-m-d H:i:s')
+            . " "
             . $line
             . PHP_EOL
             . json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
