@@ -229,6 +229,7 @@ class DBVKSynchronizerService
             echo "start to add offer {$offer->id}\n";
             $this->loadOfferPictures($offer);
             $picturesIds = $offer->prepareOfferPicturesVKIds();
+            $this->log("pictureIds:", $picturesIds);
             if (!$picturesIds['main_picture']) {
                 $mess = "main picture for {$offer->id} is missing, skip loading\n";
                 Log::critical($mess);
