@@ -304,9 +304,9 @@ class FileDBSynchronizerService
         $skip = false;
 
         foreach ($resultArray as $resultItem) {
-            if ($resultItemPrev && $resultItem->id != $resultItemPrev->id && count($currentParticipants) > 1) {
+            if ($resultItemPrev && $resultItem->id != $resultItemPrev->id) {
 
-                if (!$skip) {
+                if (!$skip && count($currentParticipants) > 1) {
                     // формирование нового агрегата на основе циклично подготовленных данных
                     $this->fillAggregate($resultItemPrev, $currentSizes, $currentParticipants);
                 }
