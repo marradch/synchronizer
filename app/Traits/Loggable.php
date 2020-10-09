@@ -4,7 +4,7 @@ namespace App\Traits;
 
 trait Loggable
 {
-    public function log($line, $payload)
+    public function log($line, $payload = null)
     {
         if (!env('LOGGING')) {
             return false;

@@ -125,6 +125,7 @@ class DBVKSynchronizerService
 
         $token = $this->token;
         try {
+            $local_path = $picture->local_path;
             $paramsArray = [
                 'group_id' => $this->group
             ];
@@ -152,7 +153,6 @@ class DBVKSynchronizerService
         $uploadUrl = $result['upload_url'];
 
         try {
-            $local_path = $picture->local_path;
             $resultArray = $this->retry(
                 function () use ($uploadUrl, $local_path) {
                     return $this->VKApiClient->getRequest()->upload($uploadUrl, 'photo', $local_path);
@@ -161,6 +161,7 @@ class DBVKSynchronizerService
             $this->log("loadPictureToVK upload for {$photoType}:", $resultArray);
         } catch (Throwable $e) {
             $mess = "Picture {$picture->url}($picture->id) wasn't uploaded: {$e->getMessage()}\n";
+            $this->log($mess);
             $picture->vk_loading_error = $mess;
             $picture->save();
             Log::critical($mess);
@@ -190,6 +191,7 @@ class DBVKSynchronizerService
             }
         } catch (Exception $e) {
             $mess = "error to load picture {$picture->id}: {$e->getMessage()}\n";
+            $this->log($mess);
             $picture->vk_loading_error = $mess;
             $picture->save();
             Log::critical($mess);
