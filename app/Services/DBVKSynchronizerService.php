@@ -162,9 +162,6 @@ class DBVKSynchronizerService
         } catch (Throwable $e) {
             $mess = "Picture {$picture->url}($picture->id) wasn't uploaded: {$e->getMessage()}\n";
             $picture->vk_loading_error = $mess;
-            if (!$hasMain && ($ind == 0)) {
-                $picture->is_main = 1;
-            }
             $picture->save();
             Log::critical($mess);
             return false;
@@ -182,6 +179,9 @@ class DBVKSynchronizerService
 
             if (!$duplicate) {
                 $picture->markAsSynchronized($result[0]['id']);
+                if (!$hasMain && ($ind == 0)) {
+                    $picture->is_main = 1;
+                }
                 $picture->save();
 
                 return $picture->vk_id;

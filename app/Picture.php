@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Traits\Loggable;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\Log;
  */
 class Picture extends SynchronizedModel
 {
+    use Loggable;
+
     protected $fillable = [
         'offer_id',
         'url',
@@ -35,8 +38,10 @@ class Picture extends SynchronizedModel
     {
         $path = public_path() . '/downloads/' . basename($this->url);
         if (!file_exists($path)) {
-            Log::warning("Picture at $path not found, using default one");
-            $path = $this->getDefaultAttribute();
+            $errorMessage = "Picture at $path not found, using default one";
+            $this->log($errorMessage, null);
+            Log::warning($errorMessage);
+            throw new \Exception($errorMessage);
         }
 
         return $path;
