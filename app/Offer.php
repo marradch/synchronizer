@@ -46,20 +46,19 @@ class Offer extends SynchronizedModel
 
     public function prepareOfferPicturesVKIds()
     {
-        $picturesVKIds = $this->pictures
+        $mainPictureVKId = $this->pictures
             ->where('status', 'added')
+            ->where('is_main', 1)
             ->where('synchronized', true)
             ->pluck('vk_id');
+        $mainPicture = $mainPictureVKId->first();
 
-        $picturesVKIds = $picturesVKIds->toArray();
-
-        $mainPicture = array_shift($picturesVKIds);
-        $shortArray = [];
-        while(count($shortArray) < 4
-            && count($picturesVKIds)) {
-            $shortArray[] = array_shift($picturesVKIds);
-        }
-        $restPictures = implode(',', $shortArray);
+        $picturesVKIds = $this->pictures
+            ->where('status', 'added')
+            ->where('is_main', 0)
+            ->where('synchronized', true)
+            ->pluck('vk_id');
+        $restPictures = implode(',', $picturesVKIds->toArray());
 
         return [
             'main_picture' => $mainPicture,

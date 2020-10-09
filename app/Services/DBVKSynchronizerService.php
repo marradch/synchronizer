@@ -82,7 +82,7 @@ class DBVKSynchronizerService
                 } else {
                     $pictureInAnotherCategory = Category::where('picture_vk_id', $pictureItem->vk_id)->count();
                     if ($pictureInAnotherCategory) {
-                        $vk_id = $this->loadPictureToVK($pictureItem, true);
+                        $vk_id = $this->loadPictureToVK($pictureItem, 0, false, true);
                         if (!$vk_id) {
                             $mess = "Category {$category->name}($category->id) hasn't the picture\n";
                             $category->vk_loading_error = $mess;
@@ -119,22 +119,26 @@ class DBVKSynchronizerService
         echo "end to add categories\n";
     }
 
-    private function loadPictureToVK($picture, $duplicate = false)
+    private function loadPictureToVK($picture, $ind, $hasMain, $duplicate = false)
     {
         echo "start load picture {$picture->id}\n";
 
         $token = $this->token;
         try {
             $paramsArray = [
-                'group_id' => $this->group,
-                'main_photo' => 1
+                'group_id' => $this->group
             ];
+            $photoType = 'usual photo';
+            if (!$hasMain && ($ind == 0)) {
+                $paramsArray['main_photo'] = 1;
+                $photoType = 'main photo';
+            }
             $result = $this->retry(
                 function () use ($token, $paramsArray) {
                     return $this->VKApiClient->photos()->getMarketUploadServer($token, $paramsArray);
                 }
             );
-            $this->log("loadPictureToVK getMarketUploadServer:", $result);
+            $this->log("loadPictureToVK getMarketUploadServer for {$photoType}:", $result);
         } catch (Exception $e) {
             $mess = 'error in getMarketUploadServer: ' . $e->getMessage() . "\n";
             $picture->vk_loading_error = $mess;
@@ -154,10 +158,13 @@ class DBVKSynchronizerService
                     return $this->VKApiClient->getRequest()->upload($uploadUrl, 'photo', $local_path);
                 }
             );
-            $this->log("loadPictureToVK upload:", $resultArray);
+            $this->log("loadPictureToVK upload for {$photoType}:", $resultArray);
         } catch (Throwable $e) {
             $mess = "Picture {$picture->url}($picture->id) wasn't uploaded: {$e->getMessage()}\n";
             $picture->vk_loading_error = $mess;
+            if (!$hasMain && ($ind == 0)) {
+                $picture->is_main = 1;
+            }
             $picture->save();
             Log::critical($mess);
             return false;
@@ -290,8 +297,12 @@ class DBVKSynchronizerService
             ->where('status', '<>', 'deleted')
             ->get();
 
-        foreach ($pictures as $picture) {
-            $this->loadPictureToVK($picture);
+        $hasMain = Picture::where('offer_id', $offer->id)
+            ->where('is_main', 1)
+            ->get();
+
+        foreach ($pictures as $ind => $picture) {
+            $this->loadPictureToVK($picture, $ind, $hasMain);
         }
     }
 
