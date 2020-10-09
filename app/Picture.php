@@ -39,7 +39,13 @@ class Picture extends SynchronizedModel
         $path = public_path() . '/downloads/' . basename($this->url);
         $this->log("Picture getLocalPathAttribute:" . $path);
         if (!file_exists($path)) {
-            $errorMessage = "Picture at $path not found, using default one";
+            $errorMessage = "File at $path not found, skip";
+            $this->log($errorMessage, null);
+            Log::warning($errorMessage);
+            throw new \Exception($errorMessage);
+        }
+        if (!$this->isImage($path)) {
+            $errorMessage = "File at $path is not image, skip";
             $this->log($errorMessage, null);
             Log::warning($errorMessage);
             throw new \Exception($errorMessage);
@@ -52,5 +58,13 @@ class Picture extends SynchronizedModel
     public function getDefaultAttribute()
     {
         return public_path() . env('SHOP_DEFAULT_PICTURE_PATH', null);
+    }
+
+    private function isImage(string $path)
+    {
+        $allowedMimeTypes = ['image/jpeg', 'image/gif', 'image/png'];
+        $contentType = mime_content_type($path);
+
+        return in_array($contentType, $allowedMimeTypes);
     }
 }
