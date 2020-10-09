@@ -37,12 +37,14 @@ class Picture extends SynchronizedModel
     public function getLocalPathAttribute()
     {
         $path = public_path() . '/downloads/' . basename($this->url);
+        $this->log("Picture getLocalPathAttribute:" . $path);
         if (!file_exists($path)) {
             $errorMessage = "Picture at $path not found, using default one";
             $this->log($errorMessage, null);
             Log::warning($errorMessage);
             throw new \Exception($errorMessage);
         }
+        $this->log("Picture size:" . filesize($path));
 
         return $path;
     }
