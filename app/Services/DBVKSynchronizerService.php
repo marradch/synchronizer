@@ -302,7 +302,7 @@ class DBVKSynchronizerService
 
         $hasMain = Picture::where('offer_id', $offer->id)
             ->where('is_main', 1)
-            ->get();
+            ->count() > 0;
 
         foreach ($pictures as $ind => $picture) {
             $this->loadPictureToVK($picture, $ind, $hasMain);
