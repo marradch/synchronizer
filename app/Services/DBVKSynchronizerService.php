@@ -302,6 +302,7 @@ class DBVKSynchronizerService
 
         $hasMain = Picture::where('offer_id', $offer->id)
             ->where('is_main', 1)
+            ->where('synchronized', 1)
             ->count() > 0;
 
         foreach ($pictures as $ind => $picture) {
