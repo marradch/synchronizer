@@ -384,6 +384,7 @@ class FileDBSynchronizerService
         if (empty($paramsArray['Размер'])) {
             unset($params['Размер']);
         }
+        $currentSizes = array_unique($currentSizes);
         $params['Размеры'] = implode(', ', $currentSizes);
         $offer->params = serialize($params);
 
