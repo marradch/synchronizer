@@ -4,6 +4,8 @@ namespace App;
 
 class Offer extends SynchronizedModel
 {
+    const MAX_PHOTOS_TO_VK = 4;
+
     protected $fillable = [
         'shop_id',
         'shop_category_id',
@@ -57,6 +59,7 @@ class Offer extends SynchronizedModel
             ->where('status', 'added')
             ->where('is_main', 0)
             ->where('synchronized', true)
+            ->limit(self::MAX_PHOTOS_TO_VK)
             ->pluck('vk_id');
         $restPictures = implode(',', $picturesVKIds->toArray());
 
