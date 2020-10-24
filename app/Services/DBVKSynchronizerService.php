@@ -355,6 +355,14 @@ class DBVKSynchronizerService
                     'album_id' => $category->vk_id,
                     'title' => $category->prepared_name
                 ];
+                $pictureItem = $category->picture;
+
+                if (!$pictureItem->vk_id) {
+                    $pictureItem->vk_id = $this->loadPictureToVK($pictureItem);
+                    $paramsArray['photo_id'] = $pictureItem->vk_id;
+                    $category->picture_vk_id = $paramsArray['photo_id'];
+                    $category->save();
+                }
 
                 $response = $this->retry(
                     function () use ($token, $paramsArray) {
