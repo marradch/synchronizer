@@ -59,9 +59,8 @@ class Offer extends SynchronizedModel
             ->where('status', 'added')
             ->where('is_main', 0)
             ->where('synchronized', true)
-            ->limit(self::MAX_PHOTOS_TO_VK)
             ->pluck('vk_id');
-        $restPictures = implode(',', $picturesVKIds->toArray());
+        $restPictures = implode(',', $picturesVKIds->slice(0, self::MAX_PHOTOS_TO_VK)->toArray());
 
         return [
             'main_picture' => $mainPicture,
