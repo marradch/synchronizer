@@ -182,6 +182,8 @@ class DBVKSynchronizerService
                 $picture->markAsSynchronized($result[0]['id']);
                 if (!$hasMain && ($ind == 0)) {
                     $picture->is_main = 1;
+                } else {
+                    $picture->is_main = 0;
                 }
                 $picture->save();
 
