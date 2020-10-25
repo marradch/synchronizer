@@ -635,7 +635,7 @@ class DBVKSynchronizerService
         $categoriesToFixQuery = Category::query()
             ->where('can_load_to_vk', 'yes')
             ->where('vk_id', '>', 0)
-            ->where('picture_vk_id', 0)
+            ->where('picture_vk_id', '<=', 0)
             ->where('status', '<>', 'deleted');
         $countCategories = $categoriesToFixQuery->count();
         $this->log("Categories to fix: " . $countCategories);
