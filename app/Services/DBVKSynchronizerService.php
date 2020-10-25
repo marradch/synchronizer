@@ -38,6 +38,8 @@ class DBVKSynchronizerService
 
         echo "start loading to VK\n";
 
+        $this->fixCategoriesPictures();
+
         $this->loadAddedCategoryToVK();
         $this->loadAddedOffersToVK();
 
@@ -66,37 +68,6 @@ class DBVKSynchronizerService
                     'owner_id' => '-' . $this->group,
                     'title' => $category->prepared_name
                 ];
-                $pictureItem = $category->picture;
-
-                if (!$pictureItem->vk_id) {
-                    $pictureItem->vk_id = $this->loadPictureToVK($pictureItem);
-
-                    if (!$pictureItem->vk_id) {
-                        $mess = "Category {$category->name}($category->id) hasn't the picture\n";
-                        $category->vk_loading_error = $mess;
-                        Log::warning($mess);
-                        echo $mess;
-                    } else {
-                        $paramsArray['photo_id'] = $pictureItem->vk_id;
-                    }
-                } else {
-                    $pictureInAnotherCategory = Category::where('picture_vk_id', $pictureItem->vk_id)->count();
-                    if ($pictureInAnotherCategory) {
-                        $vk_id = $this->loadPictureToVK($pictureItem, 0, false, true);
-                        if (!$vk_id) {
-                            $mess = "Category {$category->name}($category->id) hasn't the picture\n";
-                            $category->vk_loading_error = $mess;
-                            Log::warning($mess);
-                            echo $mess;
-                        } else {
-                            $paramsArray['photo_id'] = $vk_id;
-                        }
-                    }
-                }
-
-                if (isset($paramsArray['photo_id']) && $paramsArray['photo_id']) {
-                    $category->picture_vk_id = $paramsArray['photo_id'];
-                }
 
                 $response = $this->retry(
                     function () use ($token, $paramsArray) {
@@ -104,8 +75,11 @@ class DBVKSynchronizerService
                     }
                 );
                 $this->log("loadAddedCategoryToVK addAlbum:", $response);
+
+                $result = $this->addPictureToCategory($category);
+                $this->log("addAlbum addPictureToCategory:", $result);
                 $category->markAsSynchronized($response['market_album_id']);
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 $mess = "error to load category {$category->shop_id}: {$e->getMessage()}\n";
                 $category->vk_loading_error = $mess;
                 Log::critical($mess);
@@ -301,10 +275,10 @@ class DBVKSynchronizerService
             ->get();
 
         $hasMain = Picture::where('offer_id', $offer->id)
-            ->where('is_main', 1)
-            ->where('synchronized', 1)
-            ->where('status', 'added')
-            ->count() > 0;
+                ->where('is_main', 1)
+                ->where('synchronized', 1)
+                ->where('status', 'added')
+                ->count() > 0;
 
         foreach ($pictures as $ind => $picture) {
             $this->loadPictureToVK($picture, $ind, $hasMain);
@@ -355,14 +329,6 @@ class DBVKSynchronizerService
                     'album_id' => $category->vk_id,
                     'title' => $category->prepared_name
                 ];
-                $pictureItem = $category->picture;
-
-                if (!$pictureItem->vk_id) {
-                    $pictureItem->vk_id = $this->loadPictureToVK($pictureItem);
-                    $paramsArray['photo_id'] = $pictureItem->vk_id;
-                    $category->picture_vk_id = $paramsArray['photo_id'];
-                    $category->save();
-                }
 
                 $response = $this->retry(
                     function () use ($token, $paramsArray) {
@@ -370,8 +336,11 @@ class DBVKSynchronizerService
                     }
                 );
                 $this->log("processEditedCategories editAlbum:", $response);
+
+                $result = $this->addPictureToCategory($category);
+                $this->log("editAlbum addPictureToCategory:", $result);
                 $category->markAsSynchronized();
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 $mess = "error to edit category {$category->shop_id}: {$e->getMessage()}\n";
                 $category->vk_loading_error = $mess;
                 Log::critical($mess);
@@ -658,5 +627,94 @@ class DBVKSynchronizerService
         }
 
         echo "end to fill gaps in overflow albums\n";
+    }
+
+    private function fixCategoriesPictures()
+    {
+        $this->log("Fix categories pictures, start");
+        $categoriesToFixQuery = Category::query()
+            ->where('can_load_to_vk', 'yes')
+            ->where('vk_id', '>', 0)
+            ->where('picture_vk_id', 0)
+            ->where('status', '<>', 'deleted');
+        $countCategories = $categoriesToFixQuery->count();
+        $this->log("Categories to fix: " . $countCategories);
+        foreach ($categoriesToFixQuery->get() as $ind => $category) {
+            $currentInd = $ind + 1;
+            $this->log("{$currentInd}/{$countCategories} fix categories pictures for: " . $category->prepared_name);
+            try {
+                $result = $this->addPictureToCategory($category);
+                $this->log("fixCategoriesPictures editAlbum:", $result);
+            } catch (Throwable $e) {
+                $this->log("Error while fixCategoriesPictures" . $e->getMessage());
+            }
+        }
+        $this->log("Fix categories pictures, finish");
+    }
+
+    private function loadAlbumPictureToVK($picture, $categoryId)
+    {
+        $params = [
+            'group_id' => $categoryId
+        ];
+        $result = $this->retry(
+            function () use ($params) {
+                return $this->VKApiClient->photos()->getMarketAlbumUploadServer($this->token, $params);
+            }
+        );
+        if (!isset($result['upload_url'])) {
+            $this->log("Could not get getMarketAlbumUploadServer, skip");
+            return -1;
+        }
+        $uploadUrl = $result['upload_url'];
+        $result = $this->retry(
+            function () use ($uploadUrl, $picture) {
+                return $this->VKApiClient->getRequest()->upload($uploadUrl, 'photo', $picture->local_path);
+            }
+        );
+        if (!isset($result['server'])) {
+            $this->log("Could not upload album picture, skip");
+            return -1;
+        }
+        $params = [
+            'server' => $result['server'],
+            'photo' => $result['photo'],
+            'hash' => $result['hash']
+        ];
+        $result = $this->retry(
+            function () use ($params) {
+                return $this->VKApiClient->photos()->saveMarketAlbumPhoto($this->token, $params);
+            }
+        );
+        if (!isset($result['id'])) {
+            $this->log("Could not saveMarketAlbumPhoto, skip");
+            return -1;
+        }
+
+        return $result['id'];
+    }
+
+    /**
+     * @param Builder $category
+     * @return mixed
+     * @throws Throwable
+     */
+    private function addPictureToCategory(Category $category)
+    {
+        $pictureItem = $category->picture;
+        $pictureVkId = $this->loadAlbumPictureToVK($pictureItem, $category->vk_id);
+        $category->update(['picture_vk_id' => $pictureVkId]);
+        $params = [
+            'owner_id' => '-' . $this->group,
+            'album_id' => $category->vk_id,
+            'title' => $category->prepared_name,
+            'photo_id' => $pictureVkId
+        ];
+        $result = $this->retry(
+            function () use ($params) {
+                return $this->VKApiClient->market()->editAlbum($this->token, $params);
+            }
+        );
+        return $result;
     }
 }
