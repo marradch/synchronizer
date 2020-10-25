@@ -117,8 +117,10 @@ class Category extends SynchronizedModel
         $dimensions = self::MIN_CATEGORY_IMAGE_WIDTH . "x" . self::MIN_CATEGORY_IMAGE_HEIGHT;
         $this->log("Category getPictureAttribute, looking for " . $dimensions);
         foreach ($this->offers as $offer) {
-            $pictures = $offer->pictures->where('status', '<>', 'deleted')->get();
-            foreach ($pictures as $picture) {
+            foreach ($offer->pictures as $picture) {
+                if ($picture->status === 'deleted') {
+                    continue;
+                }
                 $path = $picture->local_path;
                 $imagedetails = getimagesize($path);
                 $width = $imagedetails[0];
