@@ -23,10 +23,15 @@ class DBVKSynchronizerService
     protected $group;
     protected $token;
     protected $VKApiClient;
+    /**
+     * @var false|mixed
+     */
+    private $fixCategoriesPictures;
 
-    public function __construct()
+    public function __construct($fixCategories = false)
     {
         $this->VKApiClient = new VKApiClient();
+        $this->fixCategoriesPictures = $fixCategories;
     }
 
     public function loadAllToVK()
@@ -38,7 +43,9 @@ class DBVKSynchronizerService
 
         echo "start loading to VK\n";
 
-        $this->fixCategoriesPictures();
+        if ($this->fixCategoriesPictures) {
+            $this->fixCategoriesPictures();
+        }
 
         $this->loadAddedCategoryToVK();
         $this->loadAddedOffersToVK();
