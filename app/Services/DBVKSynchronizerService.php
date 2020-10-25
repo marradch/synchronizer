@@ -692,12 +692,12 @@ class DBVKSynchronizerService
             }
         );
         $this->log("saveMarketAlbumPhoto", $result);
-        if (!isset($result['id'])) {
+        if (!isset($result[0]['id'])) {
             $this->log("Could not saveMarketAlbumPhoto, skip");
             return -1;
         }
 
-        return $result['id'];
+        return $result[0]['id'];
     }
 
     /**
