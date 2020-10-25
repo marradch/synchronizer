@@ -680,6 +680,7 @@ class DBVKSynchronizerService
             return -1;
         }
         $params = [
+            'group_id' => $groupId,
             'server' => $result['server'],
             'photo' => $result['photo'],
             'hash' => $result['hash']
