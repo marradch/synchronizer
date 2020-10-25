@@ -665,8 +665,9 @@ class DBVKSynchronizerService
         );
         $this->log("getMarketAlbumUploadServer", $result);
         if (!isset($result['upload_url'])) {
-            $this->log("Could not get getMarketAlbumUploadServer, skip");
-            return -1;
+            $error = "Could not get getMarketAlbumUploadServer, skip";
+            $this->log($error);
+            throw new Exception($error);
         }
         $uploadUrl = $result['upload_url'];
         $result = $this->retry(
@@ -676,8 +677,9 @@ class DBVKSynchronizerService
         );
         $this->log("upload to $uploadUrl", $result);
         if (!isset($result['server'])) {
-            $this->log("Could not upload album picture, skip");
-            return -1;
+            $error = "Could not upload album picture, skip";
+            $this->log($error);
+            throw new Exception($error);
         }
         $params = [
             'group_id' => $groupId,
@@ -693,8 +695,9 @@ class DBVKSynchronizerService
         );
         $this->log("saveMarketAlbumPhoto", $result);
         if (!isset($result[0]['id'])) {
-            $this->log("Could not saveMarketAlbumPhoto, skip");
-            return -1;
+            $error = "Could not saveMarketAlbumPhoto, skip";
+            $this->log($error);
+            throw new Exception($error);
         }
 
         return $result[0]['id'];
