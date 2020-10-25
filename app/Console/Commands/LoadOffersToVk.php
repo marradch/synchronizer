@@ -45,7 +45,7 @@ class LoadOffersToVk extends Command
     {
         try {
             (new DBVKSynchronizerService())->loadAllToVK();
-        } catch (Exception $e) {
+        } catch (\Throwable $e) {
             Log::critical("Exception while importing file: {$e->getMessage()}");
             return 1;
         }

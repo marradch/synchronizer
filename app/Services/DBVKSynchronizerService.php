@@ -644,9 +644,9 @@ class DBVKSynchronizerService
             $this->log("{$currentInd}/{$countCategories} fix categories pictures for: " . $category->prepared_name);
             try {
                 $result = $this->addPictureToCategory($category);
-                $this->log("fixCategoriesPictures editAlbum:", $result);
+                $this->log("fixCategoriesPictures editAlbum: ", $result);
             } catch (Throwable $e) {
-                $this->log("Error while fixCategoriesPictures" . $e->getMessage());
+                $this->log("Error while fixCategoriesPictures: " . $e->getMessage());
             }
         }
         $this->log("Fix categories pictures, finish");
@@ -657,9 +657,10 @@ class DBVKSynchronizerService
         $params = [
             'group_id' => $categoryId
         ];
+        $token = $this->token;
         $result = $this->retry(
-            function () use ($params) {
-                return $this->VKApiClient->photos()->getMarketAlbumUploadServer($this->token, $params);
+            function () use ($token, $params) {
+                return $this->VKApiClient->photos()->getMarketAlbumUploadServer($token, $params);
             }
         );
         if (!isset($result['upload_url'])) {
@@ -681,9 +682,10 @@ class DBVKSynchronizerService
             'photo' => $result['photo'],
             'hash' => $result['hash']
         ];
+        $token = $this->token;
         $result = $this->retry(
-            function () use ($params) {
-                return $this->VKApiClient->photos()->saveMarketAlbumPhoto($this->token, $params);
+            function () use ($token, $params) {
+                return $this->VKApiClient->photos()->saveMarketAlbumPhoto($token, $params);
             }
         );
         if (!isset($result['id'])) {
@@ -710,9 +712,10 @@ class DBVKSynchronizerService
             'title' => $category->prepared_name,
             'photo_id' => $pictureVkId
         ];
+        $token = $this->token;
         $result = $this->retry(
-            function () use ($params) {
-                return $this->VKApiClient->market()->editAlbum($this->token, $params);
+            function () use ($token, $params) {
+                return $this->VKApiClient->market()->editAlbum($token, $params);
             }
         );
         return $result;
