@@ -712,7 +712,7 @@ class DBVKSynchronizerService
     {
         $pictureItem = $category->picture;
         $pictureVkId = $this->loadAlbumPictureToVK($pictureItem, $this->group);
-        $category->update(['picture_vk_id' => $pictureVkId]);
+        $category->update(['picture_vk_id' => $pictureVkId, 'vk_loading_error' => '']);
         $params = [
             'owner_id' => '-' . $this->group,
             'album_id' => $category->vk_id,
