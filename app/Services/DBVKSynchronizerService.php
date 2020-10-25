@@ -663,6 +663,7 @@ class DBVKSynchronizerService
                 return $this->VKApiClient->photos()->getMarketAlbumUploadServer($token, $params);
             }
         );
+        $this->log("getMarketAlbumUploadServer", $result);
         if (!isset($result['upload_url'])) {
             $this->log("Could not get getMarketAlbumUploadServer, skip");
             return -1;
@@ -673,6 +674,7 @@ class DBVKSynchronizerService
                 return $this->VKApiClient->getRequest()->upload($uploadUrl, 'photo', $picture->local_path);
             }
         );
+        $this->log("upload to $uploadUrl", $result);
         if (!isset($result['server'])) {
             $this->log("Could not upload album picture, skip");
             return -1;
@@ -688,6 +690,7 @@ class DBVKSynchronizerService
                 return $this->VKApiClient->photos()->saveMarketAlbumPhoto($token, $params);
             }
         );
+        $this->log("saveMarketAlbumPhoto", $result);
         if (!isset($result['id'])) {
             $this->log("Could not saveMarketAlbumPhoto, skip");
             return -1;
@@ -712,12 +715,14 @@ class DBVKSynchronizerService
             'title' => $category->prepared_name,
             'photo_id' => $pictureVkId
         ];
+        $this->log("editAlbum params", $params);
         $token = $this->token;
         $result = $this->retry(
             function () use ($token, $params) {
                 return $this->VKApiClient->market()->editAlbum($token, $params);
             }
         );
+        $this->log("editAlbum result", $result);
         return $result;
     }
 }
