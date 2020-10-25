@@ -652,10 +652,10 @@ class DBVKSynchronizerService
         $this->log("Fix categories pictures, finish");
     }
 
-    private function loadAlbumPictureToVK($picture, $categoryId)
+    private function loadAlbumPictureToVK($picture, $groupId)
     {
         $params = [
-            'group_id' => $categoryId
+            'group_id' => $groupId
         ];
         $token = $this->token;
         $result = $this->retry(
@@ -707,7 +707,7 @@ class DBVKSynchronizerService
     private function addPictureToCategory(Category $category)
     {
         $pictureItem = $category->picture;
-        $pictureVkId = $this->loadAlbumPictureToVK($pictureItem, $category->vk_id);
+        $pictureVkId = $this->loadAlbumPictureToVK($pictureItem, $this->group);
         $category->update(['picture_vk_id' => $pictureVkId]);
         $params = [
             'owner_id' => '-' . $this->group,
