@@ -9,11 +9,13 @@ trait Loggable
         if (!env('LOGGING')) {
             return false;
         }
+        $payload = $payload ?
+            json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL
+            : '';
         echo date('Y-m-d H:i:s')
             . " "
             . $line
             . PHP_EOL
-            . json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
-            . PHP_EOL;
+            . $payload;
     }
 }
