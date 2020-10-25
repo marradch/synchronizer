@@ -2,8 +2,15 @@
 
 namespace App;
 
+use App\Traits\Loggable;
+
 class Category extends SynchronizedModel
 {
+    use Loggable;
+
+    const MIN_CATEGORY_IMAGE_WIDTH = 1280;
+    const MIN_CATEGORY_IMAGE_HEIGHT = 720;
+
     protected $fillable = [
         'shop_id',
         'shop_parent_id',
@@ -75,15 +82,17 @@ class Category extends SynchronizedModel
 
         $specIdx = array_search($specCategoryId, $preparedIdsArray);
 
-        if($specIdx) {
+        if ($specIdx) {
             $preparedNameArray = [];
 
             foreach ($parents as $idx => $parent) {
-                if($idx < $specIdx) continue;
+                if ($idx < $specIdx) {
+                    continue;
+                }
                 $preparedNameArray[] = $parent->name;
             }
 
-            $this->prepared_name = implode('/', $preparedNameArray).'/'.$this->name;
+            $this->prepared_name = implode('/', $preparedNameArray) . '/' . $this->name;
         } else {
             $this->prepared_name = $this->name;
         }
@@ -91,7 +100,7 @@ class Category extends SynchronizedModel
 
     public function buildParentsArray($parentsArray = [])
     {
-        if($this->parent) {
+        if ($this->parent) {
             $parentsArray[] = $this->parent;
             $parentsArray = $this->parent->buildParentsArray($parentsArray);
         }
@@ -105,6 +114,24 @@ class Category extends SynchronizedModel
      */
     public function getPictureAttribute()
     {
-        return $this->offers->first()->pictures->where('status', '<>', 'deleted')->first();
+        $dimensions = self::MIN_CATEGORY_IMAGE_WIDTH . "x" . self::MIN_CATEGORY_IMAGE_HEIGHT;
+        $this->log("Category getPictureAttribute, looking for " . $dimensions);
+        foreach ($this->offers as $offer) {
+            $pictures = $offer->pictures->where('status', '<>', 'deleted')->get();
+            foreach ($pictures as $picture) {
+                $path = $picture->local_path;
+                $imagedetails = getimagesize($path);
+                $width = $imagedetails[0];
+                $height = $imagedetails[1];
+                $this->log("Picture {$picture->local_path}: {$width}x{$height}");
+                if (($width >= self::MIN_CATEGORY_IMAGE_WIDTH) && ($height >= self::MIN_CATEGORY_IMAGE_HEIGHT)) {
+                    return $picture;
+                }
+            }
+        }
+
+        $error = "Category getPictureAttribute could not find suitable photo " . $dimensions;
+        $this->log($error);
+        throw new \Exception($error);
     }
 }
