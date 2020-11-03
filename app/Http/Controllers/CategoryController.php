@@ -9,7 +9,6 @@ class CategoryController extends Controller
 {
     public function __construct()
     {
-
     }
 
     public function index()
@@ -19,12 +18,17 @@ class CategoryController extends Controller
 
     public function getCategories()
     {
-        $categories = Category::paginate(100)->appends(['fullname']);
+        $categories = Category::query()
+            ->where('status', '<>', 'deleted')
+            ->paginate(100)
+            ->appends(['fullname']);
 
-        $categories->map(function($item) {
-            $item->full_name = $item->buildFullName();
-            return $item;
-        });
+        $categories->map(
+            function ($item) {
+                $item->full_name = $item->buildFullName();
+                return $item;
+            }
+        );
 
         return $categories->toJson();
     }
@@ -39,9 +43,11 @@ class CategoryController extends Controller
 
         $excludeIds = [];
 
-        foreach($ids as $id) {
+        foreach ($ids as $id) {
             $count++;
-            if($count > $availableCount) continue;
+            if ($count > $availableCount) {
+                continue;
+            }
             Category::find($id)->update(['can_load_to_vk' => 'yes']);
             $excludeIds[] = $id;
         }
@@ -55,19 +61,23 @@ class CategoryController extends Controller
     public function setLoadToVKNo($ids)
     {
         $ids = explode('-', $ids);
-        Category::whereIn('id', $ids)->update([
-            'can_load_to_vk' => 'no',
-            'status' => 'deleted',
-            'synchronized' => false
-        ]);
+        Category::whereIn('id', $ids)->update(
+            [
+                'can_load_to_vk' => 'no',
+                'status' => 'deleted',
+                'synchronized' => false
+            ]
+        );
         $shopIds = Category::whereIn('id', $ids)->get()->pluck('shop_id')->all();
 
         Offer::whereIn('status', ['added', 'edited'])
             ->whereIn('shop_category_id', $shopIds)
-            ->update([
-                'status' => 'deleted',
-                'synchronized' => false
-            ]);
+            ->update(
+                [
+                    'status' => 'deleted',
+                    'synchronized' => false
+                ]
+            );
     }
 
     public function getSelectedCount()

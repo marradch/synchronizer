@@ -16,7 +16,7 @@
             <li><a class="nav-link logout-link" href="{{route('album')}}">Подборки из ВКонтакте</a></li>
         </ul>
         <span class="navbar-text">
-          {{app('request')->attributes->get('authData')['full_name']}}
+          {{optional(app('request')->attributes->get('authData'))['full_name']}}
         </span>
         <a class="nav-link logout-link" href="{{route('vk.logout')}}">Выйти</a>
     </div>
