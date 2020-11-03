@@ -82,6 +82,7 @@ class DBVKSynchronizerService
                     }
                 );
                 $this->log("loadAddedCategoryToVK addAlbum:", $response);
+                $category->update(['vk_id' => $response['market_album_id']]);
 
                 $result = $this->addPictureToCategory($category);
                 $this->log("addAlbum addPictureToCategory:", $result);
