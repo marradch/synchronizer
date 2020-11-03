@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Album;
+use App\Traits\LaunchableTrait;
 use Exception;
 use Illuminate\Http\Request;
 use VK\Client\VKApiClient;
@@ -14,9 +15,16 @@ use App\Jobs\ClearAllAlbums;
 
 class AlbumController extends Controller
 {
+    use LaunchableTrait;
+
+    protected $token;
+
     public function __construct()
     {
-
+        $canLoadToVK = $this->checkAbilityOfLoading();
+        if (!$canLoadToVK) {
+            throw new Exception('Could not work with vk, please check token');
+        }
     }
 
     public function index()
@@ -27,23 +35,21 @@ class AlbumController extends Controller
     public function getAlbums($page)
     {
         $perPage = 100;
-        $authData = session('authData');
-        $authToken = $authData['access_token'];
 
-        $offset = ($page - 1)*$perPage;
+        $offset = ($page - 1) * $perPage;
         $group = Settings::where('name', 'group')->first();
 
         try {
             $paramsArray = [
                 'offset' => $offset,
-                'owner_id' => '-'.$group->value,
+                'owner_id' => '-' . $group->value,
                 'count' => $perPage
             ];
-            $response = (new VKApiClient())->market()->getAlbums($authToken, $paramsArray);
+            $response = (new VKApiClient())->market()->getAlbums($this->token, $paramsArray);
             foreach ($response['items'] as &$item) {
                 $albumItem = Album::where('album_id', $item['id'])->first();
-                if($albumItem){
-                    if(!$albumItem->is_done) {
+                if ($albumItem) {
+                    if (!$albumItem->is_done) {
                         $item['in_process'] = '+';
                     }
                 } else {
@@ -67,12 +73,11 @@ class AlbumController extends Controller
         $task->mode = $request->post('mode');
         $task->save();
 
-        foreach($selection as $album_id) {
-
-            if($task->mode == 'hard') {
+        foreach ($selection as $album_id) {
+            if ($task->mode == 'hard') {
                 $resultItem = Album::where('album_id', $album_id)
                     ->where('is_done', true)->first();
-                if($resultItem && $resultItem->task->mode == 'hard') {
+                if ($resultItem && $resultItem->task->mode == 'hard') {
                     Log::warning("Can't set task for album {$album_id}. It is in another task");
                     continue;
                 }
@@ -84,9 +89,9 @@ class AlbumController extends Controller
             $album->save();
         }
 
-        if($task->albums->count()){
+        if ($task->albums->count()) {
             dispatch(new AlbumsDeletion($task->id));
-            return response()->json(['created'=>'yes']);
+            return response()->json(['created' => 'yes']);
         }
     }
 
