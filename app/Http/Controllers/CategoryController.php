@@ -20,6 +20,8 @@ class CategoryController extends Controller
     {
         $categories = Category::query()
             ->where('status', '<>', 'deleted')
+            ->orderBy('can_load_to_vk')
+            ->orderBy('id')
             ->paginate(100)
             ->appends(['fullname']);
 
@@ -39,7 +41,7 @@ class CategoryController extends Controller
 
         $ids = explode('-', $ids);
 
-        $count = Category::where('can_load_to_vk', 'yes')->count();
+        $count = Category::where('can_load_to_vk', 'yes')->where('status', '<>', 'deleted')->count();
 
         $excludeIds = [];
 
@@ -82,7 +84,7 @@ class CategoryController extends Controller
 
     public function getSelectedCount()
     {
-        $count = Category::where('can_load_to_vk', 'yes')->count();
+        $count = Category::where('can_load_to_vk', 'yes')->where('status', '<>', 'deleted')->count();
         return response()->json(['count' => $count]);
     }
 }
