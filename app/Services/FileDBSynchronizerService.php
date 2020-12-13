@@ -94,9 +94,7 @@ class FileDBSynchronizerService
             $category = Category::where('shop_id', $shop_id)->first();
 
             if ($category) {
-                if ($category->can_load_to_vk == 'yes') {
-                    $category->turnDeletedStatus();
-                }
+                $category->turnDeletedStatus();
                 $this->editCategory($category, $categoryNode);
             } else {
                 $this->addCategory($categoryNode);
@@ -145,17 +143,19 @@ class FileDBSynchronizerService
                     && $newShopCategory->can_load_to_vk != 'yes') {
                     $offer->delete_sign = false;
                     $offer->save();
-                } else if ($offer->category->can_load_to_vk == 'yes'
-                    && $newShopCategory->can_load_to_vk != 'yes') {
-                    $offer->shop_category_id = $newShopCategoryId;
-                    $offer->delete_sign = true;
-                    $offer->check_sum = $this->buildOfferCheckSum($offerNode);
-                    $offer->save();
-                    // не сбиваем пометку удаления
-                    // не актуализируем данные
                 } else {
-                    $offer->turnDeletedStatus();
-                    $this->editOffer($offer, $offerNode);
+                    if ($offer->category->can_load_to_vk == 'yes'
+                        && $newShopCategory->can_load_to_vk != 'yes') {
+                        $offer->shop_category_id = $newShopCategoryId;
+                        $offer->delete_sign = true;
+                        $offer->check_sum = $this->buildOfferCheckSum($offerNode);
+                        $offer->save();
+                        // не сбиваем пометку удаления
+                        // не актуализируем данные
+                    } else {
+                        $offer->turnDeletedStatus();
+                        $this->editOffer($offer, $offerNode);
+                    }
                 }
             } else {
                 $this->addOffer($offerNode);
@@ -208,7 +208,6 @@ class FileDBSynchronizerService
         echo "start to modify aggregate products\n";
 
         foreach ($this->getAggregatesCursor() as $aggregate) {
-
             $currentSizes = [];
             $currentParticipants = [];
             $isEditionNeed = false;
@@ -223,7 +222,9 @@ class FileDBSynchronizerService
                 if ($participant->status != 'deleted') {
                     $paramsArray = unserialize($participant->params);
 
-                    if (empty($paramsArray['Размер'])) continue;
+                    if (empty($paramsArray['Размер'])) {
+                        continue;
+                    }
 
                     $currentSizes[] = $paramsArray['Размер'];
                     $currentParticipants[] = $participant->id;
@@ -231,8 +232,14 @@ class FileDBSynchronizerService
                 }
             }
 
-            if(count($participants)){
-                $this->modifyAggregate($participants[0], $currentSizes, $currentParticipants, $isEditionNeed, $aggregate);
+            if (count($participants)) {
+                $this->modifyAggregate(
+                    $participants[0],
+                    $currentSizes,
+                    $currentParticipants,
+                    $isEditionNeed,
+                    $aggregate
+                );
             }
         }
 
@@ -263,11 +270,13 @@ class FileDBSynchronizerService
                 && $aggregate->synchronized == true) {
                 $aggregate->vk_id = 0;
                 $aggregate->save();
-                Picture::where('offer_id', $aggregate->id)->update([
-                    'vk_id' => 0,
-                    'status' => 'added',
-                    'synchronized' => false,
-                ]);
+                Picture::where('offer_id', $aggregate->id)->update(
+                    [
+                        'vk_id' => 0,
+                        'status' => 'added',
+                        'synchronized' => false,
+                    ]
+                );
                 $isEditionNeed = true;
             }
             sort($currentParticipants);
@@ -287,14 +296,17 @@ class FileDBSynchronizerService
 
         $resultArray = DB::table('offers as of1')
             ->select('of1.*', 'of2.id as add_id', 'of2.params as add_params', 'of2.vendor_code as add_vendor_code')
-            ->join('offers as of2', function ($join) {
-                $join->on('of2.vendor_code', 'like', DB::raw('concat(of1.vendor_code, \'%\')'));
-                $join->on('of1.id', '<>', 'of2.id');
-                $join->where('of1.is_excluded', 0);
-                $join->where('of1.is_aggregate', 0);
-                $join->where('of2.is_excluded', 0);
-                $join->where('of2.is_aggregate', 0);
-            })
+            ->join(
+                'offers as of2',
+                function ($join) {
+                    $join->on('of2.vendor_code', 'like', DB::raw('concat(of1.vendor_code, \'%\')'));
+                    $join->on('of1.id', '<>', 'of2.id');
+                    $join->where('of1.is_excluded', 0);
+                    $join->where('of1.is_aggregate', 0);
+                    $join->where('of2.is_excluded', 0);
+                    $join->where('of2.is_aggregate', 0);
+                }
+            )
             ->orderBy('vendor_code')
             ->get();
 
@@ -305,7 +317,6 @@ class FileDBSynchronizerService
 
         foreach ($resultArray as $resultItem) {
             if ($resultItemPrev && $resultItem->id != $resultItemPrev->id) {
-
                 if (!$skip && count($currentParticipants) > 1) {
                     // формирование нового агрегата на основе циклично подготовленных данных
                     $this->fillAggregate($resultItemPrev, $currentSizes, $currentParticipants);
@@ -332,14 +343,14 @@ class FileDBSynchronizerService
             }
 
             if (!$skip) {
-				if (strripos('0123456789', $resultItem->add_vendor_code[strlen($resultItem->vendor_code)]) === false) {
-					// записываем в подготовительные данные все присоединенные результаты
-					$paramsArray = unserialize($resultItem->add_params);
-					if (!empty($paramsArray['Размер'])) {
-						$currentSizes[] = $paramsArray['Размер'];
-						$currentParticipants[] = $resultItem->add_id;
-					}
-				}
+                if (strripos('0123456789', $resultItem->add_vendor_code[strlen($resultItem->vendor_code)]) === false) {
+                    // записываем в подготовительные данные все присоединенные результаты
+                    $paramsArray = unserialize($resultItem->add_params);
+                    if (!empty($paramsArray['Размер'])) {
+                        $currentSizes[] = $paramsArray['Размер'];
+                        $currentParticipants[] = $resultItem->add_id;
+                    }
+                }
             }
 
             $resultItemPrev = $resultItem;
@@ -364,7 +375,7 @@ class FileDBSynchronizerService
         }
         $offer->shop_id = 0;
         $offer->shop_category_id = $baseItem->shop_category_id;
-		$offer->shop_old_category_id = $baseItem->shop_old_category_id;
+        $offer->shop_old_category_id = $baseItem->shop_old_category_id;
         $offer->name = $baseItem->name;
         $offer->price = $baseItem->price;
         if (!$aggregate) {
@@ -433,10 +444,12 @@ class FileDBSynchronizerService
 
         // айтемы, которые вошли в основу агрегата ,
         // не должны участвовать в загрузке в контакт
-        Offer::whereIn('id', $currentParticipants)->update([
-            'is_excluded' => true,
-            'synch_with_aggregate' => true,
-        ]);
+        Offer::whereIn('id', $currentParticipants)->update(
+            [
+                'is_excluded' => true,
+                'synch_with_aggregate' => true,
+            ]
+        );
     }
 
     private static function sortSizes($a, $b)
@@ -500,7 +513,7 @@ class FileDBSynchronizerService
             $checkSumArray[] = $paramNode->nodeValue;
         }
         $description = isset($offerNode->getElementsByTagName('description')[0])
-                     ? $offerNode->getElementsByTagName('description')[0]->nodeValue : '';
+            ? $offerNode->getElementsByTagName('description')[0]->nodeValue : '';
 
         $checkSumArray[] = $description;
         $pictures = $offerNode->getElementsByTagName('picture');
@@ -617,9 +630,13 @@ class FileDBSynchronizerService
         }
 
         try {
-            $this->retry(function () use ($url, $path) {
-                $this->internalDownloadFile($url, $path);
-            }, 5, 10);
+            $this->retry(
+                function () use ($url, $path) {
+                    $this->internalDownloadFile($url, $path);
+                },
+                5,
+                10
+            );
         } catch (Exception $e) {
             Log::critical("File upload error ({$url}): " . $e->getMessage());
         }
@@ -657,7 +674,6 @@ class FileDBSynchronizerService
     {
         $categories = Category::all();
         foreach ($categories as $category) {
-
             if ($category->status == 'deleted' || $category->synchronized) {
                 continue;
             }
@@ -676,16 +692,20 @@ class FileDBSynchronizerService
             $category->shop_parent_id = $categoryNode->getAttribute('parentId');
         }
         $category->name = $categoryNode->nodeValue;
-        $category->check_sum = md5($category->shop_parent_id
-            . $category->name);
+        $category->check_sum = md5(
+            $category->shop_parent_id
+            . $category->name
+        );
         $category->setStatus('added');
         $category->save();
     }
 
     private function editCategory($category, $categoryNode)
     {
-        $new_check_sum = md5($categoryNode->getAttribute('parentId')
-            . $categoryNode->nodeValue);
+        $new_check_sum = md5(
+            $categoryNode->getAttribute('parentId')
+            . $categoryNode->nodeValue
+        );
         if ($category->check_sum != $new_check_sum) {
             $category->name = $categoryNode->nodeValue;
             $parentId = $categoryNode->getAttribute('parentId');
